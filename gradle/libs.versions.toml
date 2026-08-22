@@ -1,0 +1,49 @@
+[versions]
+aws-sdk-v1 = "1.12.797"
+aws-sdk-v2 = "2.54.2"
+testcontainers = "1.21.4"
+junit = "5.12.0"
+assertj = "3.27.3"
+slf4j = "2.0.17"
+jackson = "2.19.0"
+lombok = "1.18.46"
+
+[libraries]
+# Lombok
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+
+# AWS SDK v1
+aws-sdk-v1-dynamodb = { module = "com.amazonaws:aws-java-sdk-dynamodb", version.ref = "aws-sdk-v1" }
+
+# AWS SDK v2
+aws-sdk-v2-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk-v2" }
+aws-sdk-v2-dynamodb = { module = "software.amazon.awssdk:dynamodb" }
+aws-sdk-v2-dynamodb-enhanced = { module = "software.amazon.awssdk:dynamodb-enhanced" }
+aws-sdk-v2-url-connection-client = { module = "software.amazon.awssdk:url-connection-client" }
+
+# Jackson
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+
+# Logging
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+
+# Testing
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+testcontainers = { module = "org.testcontainers:testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter" }
+
+[bundles]
+aws-sdk-v2 = [
+    "aws-sdk-v2-dynamodb",
+    "aws-sdk-v2-dynamodb-enhanced",
+    "aws-sdk-v2-url-connection-client"
+]
+testcontainers = [
+    "testcontainers",
+    "testcontainers-junit-jupiter"
+]
