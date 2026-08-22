@@ -19,6 +19,13 @@
 ## 📑 目次
 
 - [🎯 移行アーキテクチャ方針](#-移行アーキテクチャ方針)
+- [🗺️ 安全な段階的移行ロードマップ (Migration Roadmap)](#️-安全な段階的移行ロードマップ-migration-roadmap)
+  - [Step 1: ドメイン層の分離と Repository パターンの導入（事前準備）](#step-1-ドメイン層の分離と-repository-パターンの導入事前準備)
+  - [Step 2: 共通契約テスト (Contract Test) の作成](#step-2-共通契約テスト-contract-test-の作成)
+  - [Step 3: SDK v2 の追加と並行実装 (Side-by-Side 実装 & 等価性検証)](#step-3-sdk-v2-の追加と並行実装-side-by-side-実装--等価性検証)
+  - [Step 4: 段階的な切り替えと本番検証 (DI / Feature Flag / カナリア)](#step-4-段階的な切り替えと本番検証-di--feature-flag--カナリア)
+  - [Step 5: SDK v1 の完全撤退 (クリーンアップ)](#step-5-sdk-v1-の完全撤退-クリーンアップ)
+  - [⚖️ 移行戦略の比較とトレードオフ](#️-移行戦略の比較とトレードオフ)
 - [📊 v1 vs v2 徹底比較](#-v1-vs-v2-徹底比較)
   - [1. 依存関係 (Gradle Version Catalog)](#1-依存関係-gradle-version-catalog)
   - [2. クライアント初期化](#2-クライアント初期化)
@@ -40,6 +47,85 @@
    - 共通の `OrderRepository` インターフェースを介してデータアクセスを行い、呼び出し元に SDK の差異を漏らしません。
 3. **契約テストによる等価性保証 (Contract Test for Parity)**:
    - Testcontainers (`amazon/dynamodb-local`) を用いて、全く同一のテストスイート（`OrderRepositoryContractTest`）を v1 実装と v2 実装の双方に実行します（全 12 シナリオ、合計 24 テストケース）。
+
+---
+
+## 🗺️ 安全な段階的移行ロードマップ (Migration Roadmap)
+
+稼働中の大規模システムにおいて、AWS SDK のメジャーバージョンアップを一括置換（ビッグバン移行）することは、振る舞いの差異による障害リスクが非常に高くなります。
+本リポジトリが推奨・実証する **「Side-by-Side（並行共存）方式による 5 段階の移行プロセス」** は以下の通りです。
+
+```mermaid
+flowchart TD
+    subgraph S1["Step 1: 抽象化 & 分離"]
+        A1["ビジネスロジックから SDK v1 を排除"]
+        A2["Domain Model (POJO) & Repository IF 定義"]
+    end
+    subgraph S2["Step 2: 振る舞いの固定化"]
+        B1["契約テストスイートの作成"]
+        B2["v1 実装に対する全テスト検証 (CI化)"]
+    end
+    subgraph S3["Step 3: 並行実装 & 等価性検証"]
+        C1["SDK v2 依存関係を追加 (v1共存)"]
+        C2["v2 DTO & Enhanced Repository 実装"]
+        C3["契約テストで v1/v2 等価性 100% 検証"]
+    end
+    subgraph S4["Step 4: 安全な本番切替"]
+        D1["DI / Feature Flag による段階的切替"]
+        D2["カナリアリリース & メトリクス監視"]
+    end
+    subgraph S5["Step 5: クリーンアップ"]
+        E1["v1 DTO & Repository の削除"]
+        E2["SDK v1 依存関係の完全撤退"]
+    end
+
+    S1 --> S2 --> S3 --> S4 --> S5
+```
+
+### Step 1: ドメイン層の分離と Repository パターンの導入（事前準備）
+- **作業内容**:
+  - サービス層やビジネスロジック内に SDK v1 固有クラス（`DynamoDBMapper`, `AttributeValue`, `@DynamoDBTable` 付与クラス）が直接参照されている場合、これらをデータアクセス層へ閉じ込めます。
+  - 純粋な Java POJO / Record によるドメインモデル（[Order.java](src/main/java/com/example/dynamodb/domain/Order.java) など）と、共通リポジトリインターフェース（[OrderRepository.java](src/main/java/com/example/dynamodb/repository/OrderRepository.java)）を定義します。
+  - 既存の v1 処理を [V1DynamoDbOrderRepository.java](src/main/java/com/example/dynamodb/repository/v1/V1DynamoDbOrderRepository.java) に集約し、インターフェースを実装します。
+- **効果**: アプリケーション全体が SDK 非依存になり、以後の差し替え作業がリポジトリパッケージ内だけで完結します。
+
+### Step 2: 共通契約テスト (Contract Test) の作成
+- **作業内容**:
+  - `OrderRepository` インターフェースに対する共通のテストスイート（[OrderRepositoryContractTest.java](src/test/java/com/example/dynamodb/OrderRepositoryContractTest.java)）を作成します。
+  - Testcontainers（DynamoDB Local）環境を用意し、現行の [V1OrderRepositoryTest.java](src/test/java/com/example/dynamodb/V1OrderRepositoryTest.java) で全 12 シナリオ（CRUD、楽観的ロック、バッチ、トランザクション、クエリ、スキャン等）がパスすることを確認します。
+- **効果**: 「現行システムが期待する振る舞い」が厳密なテストコードとして固定化され、移行時の安全ネットになります。
+
+### Step 3: SDK v2 の追加と並行実装 (Side-by-Side 実装 & 等価性検証)
+- **作業内容**:
+  - `build.gradle.kts` に AWS SDK v2（`dynamodb`, `dynamodb-enhanced`, `url-connection-client`）を追加します（この段階では v1 は削除しません）。
+  - クラス名衝突を避けるため `com.example.dynamodb.repository.v2` パッケージを新設し、v2 用 DTO（[OrderItemV2.java](src/main/java/com/example/dynamodb/repository/v2/OrderItemV2.java)）と [V2DynamoDbEnhancedOrderRepository.java](src/main/java/com/example/dynamodb/repository/v2/V2DynamoDbEnhancedOrderRepository.java) を実装します。
+  - [V2OrderRepositoryTest.java](src/test/java/com/example/dynamodb/V2OrderRepositoryTest.java) を作成し、同一の契約テストを実行します。日時フォーマットや楽観的ロックの差異などの [Gotchas](#️-移行時の重要ポイント-gotchas) を解消し、全テストをパスさせます。
+- **効果**: 本番稼働コード（v1）に一切手を加えることなく、CI 上で v1 と 100% 等価な v2 実装を安全に完成させることができます。
+
+### Step 4: 段階的な切り替えと本番検証 (DI / Feature Flag / カナリア)
+- **作業内容**:
+  - Spring などの DI コンテナや Feature Flag、環境変数等を利用して、注入する `OrderRepository` 実装を v1 から v2 へ切り替えます。
+  - ステージング環境での負荷テスト、および本番環境でのカナリアリリース（1% → 10% → 50% → 100%）を実施し、レイテンシ・エラーレート・CPU/メモリ使用量などのメトリクスを監視します。
+  - 万が一予期せぬ問題が発生した場合は、フラグ 1 つで即座に v1 実装へロールバックします。
+- **効果**: ダウンタイムなしで安全に本番環境のトラフィックを移行できます。
+
+### Step 5: SDK v1 の完全撤退 (クリーンアップ)
+- **作業内容**:
+  - 本番環境で v2 実装の安定稼働が十分確認された後、`com.example.dynamodb.repository.v1` パッケージ配下のコード（`OrderItemV1`, `V1DynamoDbOrderRepository`, 各種 TypeConverter）および `V1OrderRepositoryTest` を削除します。
+  - `build.gradle.kts` および `gradle/libs.versions.toml` から AWS SDK v1 関連の依存関係を削除します。
+- **効果**: デッドコードや不要な依存ライブラリを排除し、SDK v2 単独のモダンでシンプルなコードベースが完成します。
+
+---
+
+### ⚖️ 移行戦略の比較とトレードオフ
+
+| 項目 | 段階的移行 (Side-by-Side) <br> **【本プロジェクト採用】** | 一括置換 (Big-Bang) |
+| :--- | :--- | :--- |
+| **移行リスク** | 🟢 **極めて低い**（契約テスト検証済み ＋ いつでもロールバック可能） | 🔴 **極めて高い**（本番でのみ発覚する仕様差異リスク大） |
+| **ダウンタイム** | 🟢 **ゼロ**（無停止で切り替え可能） | 🟡 メンテナンス停止が必要になる場合がある |
+| **リグレッション検知** | 🟢 **CI上で事前に 100% 検知可能** | 🔴 本番投入後や手動テストまで検知が遅れがち |
+| **実装工数・期間** | 🟡 一時的に v1/v2 コードと設定が共存 | 🟢 短期間で書き換えられる |
+| **バイナリサイズ** | 🟡 移行期間中のみ両 SDK を内包 | 🟢 常に単一 SDK のみ |
 
 ---
 
