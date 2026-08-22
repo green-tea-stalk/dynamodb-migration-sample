@@ -1,6 +1,15 @@
 package com.example.dynamodb.repository.v1;
 
-import com.amazonaws.services.dynamodbv2.datamodeling.*;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBIndexHashKey;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBIndexRangeKey;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBRangeKey;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTypeConverted;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTypeConvertedEnum;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTypeConverter;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBVersionAttribute;
 import com.example.dynamodb.domain.Order;
 import com.example.dynamodb.domain.OrderStatus;
 import lombok.Setter;
@@ -13,49 +22,49 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * AWS SDK v1 用 DynamoDB Entity (DynamoDBMapper)
+ * DynamoDB Entity DTO for AWS SDK v1 (DynamoDBMapper).
  */
 @DynamoDBTable(tableName = "orders")
 @Setter
 public class OrderItemV1 {
 
-    /** 顧客ID（Partition Key） */
+    /** Customer ID (Partition Key) */
     private String customerId;
 
-    /** 注文ID（Sort Key） */
+    /** Order ID (Sort Key) */
     private String orderId;
 
-    /** 注文日時 */
+    /** Order timestamp */
     private Instant orderDate;
 
-    /** 注文ステータス */
+    /** Order status */
     private OrderStatus status;
 
-    /** 注文合計金額 */
+    /** Total order amount */
     private BigDecimal totalAmount;
 
-    /** 注文明細アイテムリスト */
+    /** List of order line items */
     private List<OrderLineItemV1> items;
 
-    /** 楽観的ロック用バージョン番号 */
+    /** Version number for optimistic locking */
     private Long version;
 
-    /** 最終更新日時 */
+    /** Last updated timestamp */
     private Instant updatedAt;
 
     /**
-     * デフォルトコンストラクタ。
+     * Default constructor.
      */
     public OrderItemV1() {
         this.items = new ArrayList<>();
     }
 
     /**
-     * ドメインモデル {@link Order} から SDK v1 用エンティティを生成します。
+     * Converts a domain model {@link Order} to an SDK v1 DTO entity.
      *
      * @param domain
-     *            変換元のドメイン注文モデル
-     * @return 変換後の {@link OrderItemV1} インスタンス（引数が null の場合は null）
+     *            Source domain order model
+     * @return Converted {@link OrderItemV1} instance (null if input is null)
      */
     public static OrderItemV1 fromDomain(Order domain) {
         if (domain == null) {
@@ -76,9 +85,9 @@ public class OrderItemV1 {
     }
 
     /**
-     * SDK v1 用エンティティからドメインモデル {@link Order} へ変換します。
+     * Converts this SDK v1 DTO entity to a domain model {@link Order}.
      *
-     * @return 変換後のドメイン注文モデル
+     * @return Converted domain order model
      */
     public Order toDomain() {
         return new Order(customerId, orderId, orderDate, status, totalAmount,
@@ -89,9 +98,9 @@ public class OrderItemV1 {
     }
 
     /**
-     * 顧客ID（Partition Key）を取得します。
+     * Returns the customer ID (Partition Key).
      *
-     * @return 顧客ID
+     * @return Customer ID
      */
     @DynamoDBHashKey(attributeName = "customerId")
     public String getCustomerId() {
@@ -99,9 +108,9 @@ public class OrderItemV1 {
     }
 
     /**
-     * 注文ID（Sort Key）を取得します。
+     * Returns the order ID (Sort Key).
      *
-     * @return 注文ID
+     * @return Order ID
      */
     @DynamoDBRangeKey(attributeName = "orderId")
     public String getOrderId() {
@@ -109,9 +118,9 @@ public class OrderItemV1 {
     }
 
     /**
-     * 注文日時を取得します。GSI の Sort Key としても機能します。
+     * Returns the order date. Also functions as GSI Sort Key.
      *
-     * @return 注文日時
+     * @return Order date
      */
     @DynamoDBTypeConverted(converter = InstantTypeConverter.class)
     @DynamoDBIndexRangeKey(globalSecondaryIndexName = "status-orderDate-index", attributeName = "orderDate")
@@ -121,9 +130,9 @@ public class OrderItemV1 {
     }
 
     /**
-     * 注文ステータスを取得します。GSI の Partition Key としても機能します。
+     * Returns the order status. Also functions as GSI Partition Key.
      *
-     * @return 注文ステータス
+     * @return Order status
      */
     @DynamoDBTypeConvertedEnum
     @DynamoDBIndexHashKey(globalSecondaryIndexName = "status-orderDate-index", attributeName = "status")
@@ -133,9 +142,9 @@ public class OrderItemV1 {
     }
 
     /**
-     * 注文合計金額を取得します。
+     * Returns the total order amount.
      *
-     * @return 注文合計金額
+     * @return Total amount
      */
     @DynamoDBAttribute(attributeName = "totalAmount")
     public BigDecimal getTotalAmount() {
@@ -143,9 +152,9 @@ public class OrderItemV1 {
     }
 
     /**
-     * 注文明細アイテムリストを取得します。
+     * Returns the list of order line items.
      *
-     * @return 注文明細アイテムリスト
+     * @return List of order line items
      */
     @DynamoDBAttribute(attributeName = "items")
     public List<OrderLineItemV1> getItems() {
@@ -153,19 +162,19 @@ public class OrderItemV1 {
     }
 
     /**
-     * 注文明細アイテムリストを設定します。
+     * Sets the list of order line items.
      *
      * @param items
-     *            注文明細アイテムリスト
+     *            List of order line items
      */
     public void setItems(List<OrderLineItemV1> items) {
         this.items = items != null ? items : new ArrayList<>();
     }
 
     /**
-     * 楽観的ロック用のバージョン番号を取得します。
+     * Returns the version number for optimistic locking.
      *
-     * @return バージョン番号
+     * @return Version number
      */
     @DynamoDBVersionAttribute(attributeName = "version")
     public Long getVersion() {
@@ -173,9 +182,9 @@ public class OrderItemV1 {
     }
 
     /**
-     * 最終更新日時を取得します。
+     * Returns the last updated timestamp.
      *
-     * @return 最終更新日時
+     * @return Last updated timestamp
      */
     @DynamoDBTypeConverted(converter = InstantTypeConverter.class)
     @DynamoDBAttribute(attributeName = "updatedAt")
@@ -184,22 +193,23 @@ public class OrderItemV1 {
     }
 
     /**
-     * {@link Instant} と ISO-8601 文字列形式を相互変換するカスタムコンバーター
+     * Custom type converter between {@link Instant} and ISO-8601 string
+     * representation.
      */
     public static class InstantTypeConverter implements DynamoDBTypeConverter<String, Instant> {
 
         /**
-         * デフォルトコンストラクタ。
+         * Default constructor.
          */
         public InstantTypeConverter() {
         }
 
         /**
-         * {@link Instant} を ISO-8601 文字列に変換します。
+         * Converts {@link Instant} to ISO-8601 string.
          *
          * @param object
-         *            変換対象の {@link Instant}
-         * @return ISO-8601 形式の文字列（null の場合は null）
+         *            Source {@link Instant}
+         * @return ISO-8601 formatted string (null if input is null)
          */
         @Override
         public String convert(Instant object) {
@@ -207,11 +217,11 @@ public class OrderItemV1 {
         }
 
         /**
-         * ISO-8601 文字列を {@link Instant} に変換します。
+         * Converts ISO-8601 string back to {@link Instant}.
          *
          * @param object
-         *            変換対象の ISO-8601 文字列
-         * @return 復元された {@link Instant}（null の場合は null）
+         *            Source ISO-8601 string
+         * @return Parsed {@link Instant} (null if input is null)
          */
         @Override
         public Instant unconvert(String object) {

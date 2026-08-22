@@ -5,10 +5,11 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * ページネーション付き検索結果を表す汎用クラス（AWS SDK 非依存）
+ * Generic container for paginated query and scan results (independent of AWS
+ * SDK).
  *
  * @param <T>
- *            アイテムの型
+ *            Type of the item
  */
 public class PageResult<T> {
 
@@ -16,12 +17,12 @@ public class PageResult<T> {
     private final String nextToken;
 
     /**
-     * ページネーション結果を生成するコンストラクタ。
+     * Constructs a paginated result container.
      *
      * @param items
-     *            取得されたアイテム一覧
+     *            List of items retrieved
      * @param nextToken
-     *            次ページ取得用トークン（最終ページまたは次ページがない場合は null）
+     *            Next page pagination token (null if last page or no more results)
      */
     public PageResult(List<T> items, String nextToken) {
         this.items = items != null ? Collections.unmodifiableList(items) : Collections.emptyList();
@@ -29,27 +30,27 @@ public class PageResult<T> {
     }
 
     /**
-     * 取得されたアイテム一覧を取得します。
+     * Returns the list of retrieved items.
      *
-     * @return 変更不可能なアイテムリスト
+     * @return Unmodifiable list of items
      */
     public List<T> getItems() {
         return items;
     }
 
     /**
-     * 次のページを取得するためのトークンを取得します。
+     * Returns the pagination token for fetching the next page.
      *
-     * @return 次ページトークン（存在しない場合は {@link Optional#empty()}）
+     * @return Next page token wrapped in {@link Optional} (empty if no next page)
      */
     public Optional<String> getNextToken() {
         return (nextToken != null && !nextToken.trim().isEmpty()) ? Optional.of(nextToken) : Optional.empty();
     }
 
     /**
-     * 次ページが存在するかどうかを判定します。
+     * Determines whether a subsequent page exists.
      *
-     * @return 次ページが存在する場合は true、そうでない場合は false
+     * @return true if a next page exists; false otherwise
      */
     public boolean hasNextPage() {
         return getNextToken().isPresent();

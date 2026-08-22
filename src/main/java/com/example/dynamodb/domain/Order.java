@@ -11,7 +11,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * 注文ドメインモデル（AWS SDK 非依存）
+ * Order domain model (pure POJO, independent of AWS SDK).
  */
 @Data
 @AllArgsConstructor
@@ -19,51 +19,51 @@ import java.util.List;
 public class Order {
 
     /**
-     * デフォルトコンストラクタ。
+     * Default constructor initializing an empty line items list.
      */
     public Order() {
         this.items = new ArrayList<>();
     }
 
-    /** 顧客ID（Partition Key） */
+    /** Customer ID (Partition Key) */
     private String customerId;
 
-    /** 注文ID（Sort Key） */
+    /** Order ID (Sort Key) */
     private String orderId;
 
-    /** 注文日時 */
+    /** Date and time when the order was placed */
     private Instant orderDate;
 
-    /** 注文ステータス */
+    /** Order status */
     private OrderStatus status;
 
-    /** 注文合計金額 */
+    /** Total order amount */
     private BigDecimal totalAmount;
 
-    /** 注文明細アイテムリスト */
+    /** List of order line items */
     @Builder.Default
     private List<OrderLineItem> items = new ArrayList<>();
 
-    /** 楽観的ロック用バージョン番号 */
+    /** Version number for optimistic locking */
     private Long version;
 
-    /** 最終更新日時 */
+    /** Timestamp when the order was last updated */
     private Instant updatedAt;
 
     /**
-     * 注文明細アイテムリストを取得します。
+     * Returns the list of order line items.
      *
-     * @return 注文明細アイテムリスト（null の場合は空のリスト）
+     * @return List of order line items (empty list if null)
      */
     public List<OrderLineItem> getItems() {
         return items != null ? items : Collections.emptyList();
     }
 
     /**
-     * 注文明細アイテムリストを設定します。
+     * Sets the list of order line items.
      *
      * @param items
-     *            注文明細アイテムリスト
+     *            List of order line items
      */
     public void setItems(List<OrderLineItem> items) {
         this.items = items != null ? new ArrayList<>(items) : new ArrayList<>();

@@ -5,15 +5,15 @@ import com.example.dynamodb.repository.v2.V2DynamoDbEnhancedOrderRepository;
 import org.junit.jupiter.api.DisplayName;
 
 /**
- * AWS SDK v2 (DynamoDbEnhancedClient) 実装に対する契約テスト
+ * Contract test implementation for AWS SDK v2 (DynamoDbEnhancedClient).
  */
-@DisplayName("AWS SDK v2 (DynamoDbEnhancedClient) OrderRepository テスト")
+@DisplayName("AWS SDK v2 (DynamoDbEnhancedClient) OrderRepository Tests")
 public class V2OrderRepositoryTest extends OrderRepositoryContractTest {
 
     /**
-     * {@link V2DynamoDbEnhancedOrderRepository} のインスタンスを生成して返します。
+     * Creates an instance of {@link V2DynamoDbEnhancedOrderRepository} under test.
      *
-     * @return {@link V2DynamoDbEnhancedOrderRepository} インスタンス
+     * @return {@link V2DynamoDbEnhancedOrderRepository} instance
      */
     @Override
     protected OrderRepository createRepository() {

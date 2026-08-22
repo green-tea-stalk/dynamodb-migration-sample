@@ -1,4 +1,6 @@
-# DynamoDB v1 to v2 移行サンプルプロジェクト
+# DynamoDB v1 to v2 Migration Sample Project
+
+**English** | [日本語](README_ja.md)
 
 [![Java 25](https://img.shields.io/badge/Java-25-orange.svg)](https://openjdk.org/projects/jdk/25/)
 [![Gradle](https://img.shields.io/badge/Gradle-9.1.0-02303A.svg?logo=gradle)](https://gradle.org)
@@ -8,133 +10,152 @@
 [![Testcontainers](https://img.shields.io/badge/Testcontainers-1.21.4-blue.svg?logo=docker)](https://testcontainers.com/)
 [![Spotless](https://img.shields.io/badge/Spotless-7.0.2-blueviolet.svg)](https://github.com/diffplug/spotless)
 
-本リポジトリは、**AWS SDK for Java v1 (`DynamoDBMapper`)** から **AWS SDK for Java v2 (`DynamoDbEnhancedClient`)** への段階的かつ安全な移行を実証・解説するサンプルプロジェクトです。
+This repository is a comprehensive reference sample demonstrating how to safely and incrementally migrate from **AWS SDK for Java v1 (`DynamoDBMapper`)** to **AWS SDK for Java v2 (`DynamoDbEnhancedClient`)**.
 
-実務で頻出する各種 DynamoDB 操作（CRUD、楽観的ロック、バッチ処理、トランザクション、PK/SK クエリ、GSI クエリ、フィルタ付きスキャン、ページネーション）を網羅し、共通の契約テスト（Contract Test）によって **v1 と v2 の振る舞いが 100% 等価であること** を自動検証しています。
+It covers common real-world DynamoDB operations (CRUD, optimistic locking, batch operations, transactions, PK/SK queries, GSI queries, filtered scans, and pagination) and uses a shared **Contract Test** suite to automatically verify **100% behavioral parity between v1 and v2 implementations**.
 
-> 📖 **設計原則・規約・移行の落とし穴の完全ガイド**:
-> システム詳細設計、コーディング規約、詳細な移行注意事項（Gotchas）については [AGENTS.md](AGENTS.md) を参照してください。
-
----
-
-## 📑 目次
-
-- [🎯 移行アーキテクチャ方針](#-移行アーキテクチャ方針)
-- [🗺️ 安全な段階的移行ロードマップ (Migration Roadmap)](#️-安全な段階的移行ロードマップ-migration-roadmap)
-  - [Step 1: ドメイン層の分離と Repository パターンの導入（事前準備）](#step-1-ドメイン層の分離と-repository-パターンの導入事前準備)
-  - [Step 2: 共通契約テスト (Contract Test) の作成](#step-2-共通契約テスト-contract-test-の作成)
-  - [Step 3: SDK v2 の追加と並行実装 (Side-by-Side 実装 & 等価性検証)](#step-3-sdk-v2-の追加と並行実装-side-by-side-実装--等価性検証)
-  - [Step 4: 段階的な切り替えと本番検証 (DI / Feature Flag / カナリア)](#step-4-段階的な切り替えと本番検証-di--feature-flag--カナリア)
-  - [Step 5: SDK v1 の完全撤退 (クリーンアップ)](#step-5-sdk-v1-の完全撤退-クリーンアップ)
-  - [⚖️ 移行戦略の比較とトレードオフ](#️-移行戦略の比較とトレードオフ)
-- [📊 v1 vs v2 徹底比較](#-v1-vs-v2-徹底比較)
-  - [1. 依存関係 (Gradle Version Catalog)](#1-依存関係-gradle-version-catalog)
-  - [2. クライアント初期化](#2-クライアント初期化)
-  - [3. Entity / DTO 定義 (アノテーション比較)](#3-entity--dto-定義-アノテーション比較)
-  - [4. 操作別実装比較](#4-操作別実装比較)
-- [⚠️ 移行時の重要ポイント (Gotchas)](#️-移行時の重要ポイント-gotchas)
-- [📁 プロジェクト構成](#-プロジェクト構成)
-- [🚀 ビルド & テスト実行手順](#-ビルド--テスト実行手順)
+> 📖 **Comprehensive Guide on Architecture, Coding Standards & Gotchas**:
+> For system design principles, coding conventions, and migration gotchas, see [AGENTS.md](AGENTS.md).
 
 ---
 
-## 🎯 移行アーキテクチャ方針
+## 📑 Table of Contents
 
-稼働中のシステムにおいて SDK を安全に移行するため、以下の 3 原則を採用しています（詳細は [AGENTS.md](AGENTS.md#2-移行アーキテクチャ原則) を参照）。
-
-1. **ドメイン層の完全分離 (Domain Independence)**:
-   - `Order`, `OrderKey`, `OrderLineItem`, `OrderStatus` は純粋な POJO / Record で設計し、AWS SDK のアノテーションや型を一切持ち込みません。
-2. **Repository パターンによるカプセル化 (Repository Encapsulation)**:
-   - 共通の `OrderRepository` インターフェースを介してデータアクセスを行い、呼び出し元に SDK の差異を漏らしません。
-3. **契約テストによる等価性保証 (Contract Test for Parity)**:
-   - Testcontainers (`amazon/dynamodb-local`) を用いて、全く同一のテストスイート（`OrderRepositoryContractTest`）を v1 実装と v2 実装の双方に実行します（全 12 シナリオ、合計 24 テストケース）。
+- [🎯 Migration Architecture Principles](#-migration-architecture-principles)
+- [🗺️ Safe Incremental Migration Roadmap](#️-safe-incremental-migration-roadmap)
+  - [Step 1: Domain Isolation & Repository Abstraction (Preparation)](#step-1-domain-isolation--repository-abstraction-preparation)
+  - [Step 2: Shared Contract Test Creation](#step-2-shared-contract-test-creation)
+  - [Step 3: SDK v2 Parallel Implementation & Parity Verification](#step-3-sdk-v2-parallel-implementation--parity-verification)
+  - [Step 4: Safe Traffic Cutover (DI / Feature Flag / Canary)](#step-4-safe-traffic-cutover-di--feature-flag--canary)
+  - [Step 5: Full Decommissioning of SDK v1 (Cleanup)](#step-5-full-decommissioning-of-sdk-v1-cleanup)
+  - [⚖️ Migration Strategy Comparison & Trade-offs](#️-migration-strategy-comparison--trade-offs)
+- [📊 v1 vs v2 Side-by-Side Comparison](#-v1-vs-v2-side-by-side-comparison)
+  - [1. Dependencies (Gradle Version Catalog)](#1-dependencies-gradle-version-catalog)
+  - [2. Client Initialization](#2-client-initialization)
+  - [3. Entity / DTO Mapping (Annotation Comparison)](#3-entity--dto-mapping-annotation-comparison)
+  - [4. Operation Implementations](#4-operation-implementations)
+- [⚠️ Key Migration Gotchas](#️-key-migration-gotchas)
+- [📁 Project Structure](#-project-structure)
+- [🚀 Build & Test Instructions](#-build--test-instructions)
 
 ---
 
-## 🗺️ 安全な段階的移行ロードマップ (Migration Roadmap)
+## 🎯 Migration Architecture Principles
 
-稼働中の大規模システムにおいて、AWS SDK のメジャーバージョンアップを一括置換（ビッグバン移行）することは、振る舞いの差異による障害リスクが非常に高くなります。
-本リポジトリが推奨・実証する **「Side-by-Side（並行共存）方式による 5 段階の移行プロセス」** は以下の通りです。
+To ensure zero-downtime and risk-free migration in production systems, this project follows three strict architectural principles (see [AGENTS.md](AGENTS.md#2-architecture-principles-for-safe-migration)):
+
+```
+                  ┌──────────────────────────────┐
+                  │    Domain Model (Order)      │  ← Pure POJO / Record (SDK-Independent)
+                  └──────────────▲───────────────┘
+                                 │
+                  ┌──────────────┴───────────────┐
+                  │ <<Interface>> OrderRepository│  ← Unified Repository Interface
+                  └──────────────▲───────────────┘
+                                 │
+              ┌───────────────────┴───────────────────┐
+              │                                       │
+┌────────────────────────────┐       ┌────────────────────────────┐
+│ V1DynamoDbOrderRepository  │       │ V2DynamoDbEnhancedOrder    │
+│  (AWS SDK v1 DynamoDBMapper│       │  Repository                │
+│   + OrderItemV1 DTO)       │       │  (AWS SDK v2 Enhanced      │
+│                            │       │   + OrderItemV2 DTO)       │
+└────────────────────────────┘       └────────────────────────────┘
+```
+
+1. **Domain Independence**:
+   - Classes in `com.example.dynamodb.domain` (`Order`, `OrderKey`, `OrderLineItem`, `OrderStatus`) are pure POJOs / Records without any AWS SDK annotations or types.
+2. **Repository Encapsulation**:
+   - The business layer interacts exclusively through the `OrderRepository` interface. SDK-specific types (`DynamoDBMapper`, `DynamoDbEnhancedClient`, `AttributeValue`, etc.) are never exposed.
+3. **Contract Testing for Parity**:
+   - A single shared test suite (`OrderRepositoryContractTest`) is executed against both v1 and v2 implementations using Testcontainers (`amazon/dynamodb-local`) (12 scenarios, 24 total test cases).
+
+---
+
+## 🗺️ Safe Incremental Migration Roadmap
+
+Migrating all DynamoDB operations in a single large release ("Big-Bang" migration) poses severe risks due to subtle behavioral differences between SDKs.
+We recommend a **5-step Side-by-Side migration process**:
 
 ```mermaid
 flowchart TD
-    subgraph S1["Step 1: 抽象化 & 分離"]
-        A1["ビジネスロジックから SDK v1 を排除"]
-        A2["Domain Model (POJO) & Repository IF 定義"]
+    subgraph S1["Step 1: Abstraction & Isolation"]
+        A1["Eliminate SDK v1 dependencies from business logic"]
+        A2["Define Domain Model (POJO) & Repository Interface"]
     end
-    subgraph S2["Step 2: 振る舞いの固定化"]
-        B1["契約テストスイートの作成"]
-        B2["v1 実装に対する全テスト検証 (CI化)"]
+    subgraph S2["Step 2: Lock Down Behavior"]
+        B1["Create shared contract test suite"]
+        B2["Verify 100% pass on v1 implementation (CI)"]
     end
-    subgraph S3["Step 3: 並行実装 & 等価性検証"]
-        C1["SDK v2 依存関係を追加 (v1共存)"]
-        C2["v2 DTO & Enhanced Repository 実装"]
-        C3["契約テストで v1/v2 等価性 100% 検証"]
+    subgraph S3["Step 3: Side-by-Side Implementation"]
+        C1["Add SDK v2 dependencies alongside v1"]
+        C2["Implement v2 DTOs & Enhanced Repository"]
+        C3["Verify 100% parity with contract tests"]
     end
-    subgraph S4["Step 4: 安全な本番切替"]
-        D1["DI / Feature Flag による段階的切替"]
-        D2["カナリアリリース & メトリクス監視"]
+    subgraph S4["Step 4: Safe Traffic Cutover"]
+        D1["Switch implementations via DI / Feature Flags"]
+        D2["Canary deployment & metrics monitoring"]
     end
-    subgraph S5["Step 5: クリーンアップ"]
-        E1["v1 DTO & Repository の削除"]
-        E2["SDK v1 依存関係の完全撤退"]
+    subgraph S5["Step 5: Cleanup"]
+        E1["Remove v1 DTOs & Repository"]
+        E2["Remove AWS SDK v1 dependencies completely"]
     end
 
     S1 --> S2 --> S3 --> S4 --> S5
 ```
 
-### Step 1: ドメイン層の分離と Repository パターンの導入（事前準備）
-- **作業内容**:
-  - サービス層やビジネスロジック内に SDK v1 固有クラス（`DynamoDBMapper`, `AttributeValue`, `@DynamoDBTable` 付与クラス）が直接参照されている場合、これらをデータアクセス層へ閉じ込めます。
-  - 純粋な Java POJO / Record によるドメインモデル（[Order.java](src/main/java/com/example/dynamodb/domain/Order.java) など）と、共通リポジトリインターフェース（[OrderRepository.java](src/main/java/com/example/dynamodb/repository/OrderRepository.java)）を定義します。
-  - 既存の v1 処理を [V1DynamoDbOrderRepository.java](src/main/java/com/example/dynamodb/repository/v1/V1DynamoDbOrderRepository.java) に集約し、インターフェースを実装します。
-- **効果**: アプリケーション全体が SDK 非依存になり、以後の差し替え作業がリポジトリパッケージ内だけで完結します。
+### Step 1: Domain Isolation & Repository Abstraction (Preparation)
+- **Actions**:
+  - Encapsulate all AWS SDK v1 classes (`DynamoDBMapper`, `AttributeValue`, `@DynamoDBTable`) within the data access layer.
+  - Define pure POJO domain models ([Order.java](src/main/java/com/example/dynamodb/domain/Order.java)) and a unified repository interface ([OrderRepository.java](src/main/java/com/example/dynamodb/repository/OrderRepository.java)).
+  - Consolidate existing v1 logic into [V1DynamoDbOrderRepository.java](src/main/java/com/example/dynamodb/repository/v1/V1DynamoDbOrderRepository.java).
+- **Outcome**: The entire application becomes SDK-agnostic, localizing all future migration changes to repository packages.
 
-### Step 2: 共通契約テスト (Contract Test) の作成
-- **作業内容**:
-  - `OrderRepository` インターフェースに対する共通のテストスイート（[OrderRepositoryContractTest.java](src/test/java/com/example/dynamodb/OrderRepositoryContractTest.java)）を作成します。
-  - Testcontainers（DynamoDB Local）環境を用意し、現行の [V1OrderRepositoryTest.java](src/test/java/com/example/dynamodb/V1OrderRepositoryTest.java) で全 12 シナリオ（CRUD、楽観的ロック、バッチ、トランザクション、クエリ、スキャン等）がパスすることを確認します。
-- **効果**: 「現行システムが期待する振る舞い」が厳密なテストコードとして固定化され、移行時の安全ネットになります。
+### Step 2: Shared Contract Test Creation
+- **Actions**:
+  - Create a contract test suite ([OrderRepositoryContractTest.java](src/test/java/com/example/dynamodb/OrderRepositoryContractTest.java)) against `OrderRepository`.
+  - Run tests on DynamoDB Local via Testcontainers ([V1OrderRepositoryTest.java](src/test/java/com/example/dynamodb/V1OrderRepositoryTest.java)) covering all 12 core scenarios (CRUD, optimistic locking, batch, transactions, queries, scans, pagination).
+- **Outcome**: Existing production behavior is permanently captured in executable test specifications.
 
-### Step 3: SDK v2 の追加と並行実装 (Side-by-Side 実装 & 等価性検証)
-- **作業内容**:
-  - `build.gradle.kts` に AWS SDK v2（`dynamodb`, `dynamodb-enhanced`, `url-connection-client`）を追加します（この段階では v1 は削除しません）。
-  - クラス名衝突を避けるため `com.example.dynamodb.repository.v2` パッケージを新設し、v2 用 DTO（[OrderItemV2.java](src/main/java/com/example/dynamodb/repository/v2/OrderItemV2.java)）と [V2DynamoDbEnhancedOrderRepository.java](src/main/java/com/example/dynamodb/repository/v2/V2DynamoDbEnhancedOrderRepository.java) を実装します。
-  - [V2OrderRepositoryTest.java](src/test/java/com/example/dynamodb/V2OrderRepositoryTest.java) を作成し、同一の契約テストを実行します。日時フォーマットや楽観的ロックの差異などの [Gotchas](#️-移行時の重要ポイント-gotchas) を解消し、全テストをパスさせます。
-- **効果**: 本番稼働コード（v1）に一切手を加えることなく、CI 上で v1 と 100% 等価な v2 実装を安全に完成させることができます。
+### Step 3: SDK v2 Parallel Implementation & Parity Verification
+- **Actions**:
+  - Add AWS SDK v2 dependencies to `build.gradle.kts` without removing v1.
+  - Create the `com.example.dynamodb.repository.v2` package with v2 DTOs ([OrderItemV2.java](src/main/java/com/example/dynamodb/repository/v2/OrderItemV2.java)) and the repository implementation ([V2DynamoDbEnhancedOrderRepository.java](src/main/java/com/example/dynamodb/repository/v2/V2DynamoDbEnhancedOrderRepository.java)).
+  - Run [V2OrderRepositoryTest.java](src/test/java/com/example/dynamodb/V2OrderRepositoryTest.java) against the contract test suite, resolving any [Gotchas](#️-key-migration-gotchas) until all 12 tests pass.
+- **Outcome**: The v2 implementation achieves 100% verified compatibility in CI without altering running v1 code.
 
-### Step 4: 段階的な切り替えと本番検証 (DI / Feature Flag / カナリア)
-- **作業内容**:
-  - Spring などの DI コンテナや Feature Flag、環境変数等を利用して、注入する `OrderRepository` 実装を v1 から v2 へ切り替えます。
-  - ステージング環境での負荷テスト、および本番環境でのカナリアリリース（1% → 10% → 50% → 100%）を実施し、レイテンシ・エラーレート・CPU/メモリ使用量などのメトリクスを監視します。
-  - 万が一予期せぬ問題が発生した場合は、フラグ 1 つで即座に v1 実装へロールバックします。
-- **効果**: ダウンタイムなしで安全に本番環境のトラフィックを移行できます。
+### Step 4: Safe Traffic Cutover (DI / Feature Flag / Canary)
+- **Actions**:
+  - Use dependency injection (e.g., Spring `@Primary` or profile-based beans) or feature flags to switch the active repository from v1 to v2.
+  - Perform staging load tests followed by canary rollouts (e.g., 1% → 10% → 50% → 100%) in production, observing latency, error rates, and CPU/memory metrics.
+  - Instantly roll back to v1 via configuration toggle if anomalies occur.
+- **Outcome**: Seamless, zero-downtime production cutover.
 
-### Step 5: SDK v1 の完全撤退 (クリーンアップ)
-- **作業内容**:
-  - 本番環境で v2 実装の安定稼働が十分確認された後、`com.example.dynamodb.repository.v1` パッケージ配下のコード（`OrderItemV1`, `V1DynamoDbOrderRepository`, 各種 TypeConverter）および `V1OrderRepositoryTest` を削除します。
-  - `build.gradle.kts` および `gradle/libs.versions.toml` から AWS SDK v1 関連の依存関係を削除します。
-- **効果**: デッドコードや不要な依存ライブラリを排除し、SDK v2 単独のモダンでシンプルなコードベースが完成します。
+### Step 5: Full Decommissioning of SDK v1 (Cleanup)
+- **Actions**:
+  - Once v2 is verified stable in production, remove `com.example.dynamodb.repository.v1` (`OrderItemV1`, `V1DynamoDbOrderRepository`, TypeConverters) and `V1OrderRepositoryTest`.
+  - Remove AWS SDK v1 dependencies from `build.gradle.kts` and `gradle/libs.versions.toml`.
+- **Outcome**: Eliminates dead code and redundant dependencies, leaving a clean SDK v2 architecture.
 
 ---
 
-### ⚖️ 移行戦略の比較とトレードオフ
+### ⚖️ Migration Strategy Comparison & Trade-offs
 
-| 項目 | 段階的移行 (Side-by-Side) <br> **【本プロジェクト採用】** | 一括置換 (Big-Bang) |
+| Dimension | Incremental (Side-by-Side) <br> **[Recommended / Adopted]** | Big-Bang (All-at-Once) |
 | :--- | :--- | :--- |
-| **移行リスク** | 🟢 **極めて低い**（契約テスト検証済み ＋ いつでもロールバック可能） | 🔴 **極めて高い**（本番でのみ発覚する仕様差異リスク大） |
-| **ダウンタイム** | 🟢 **ゼロ**（無停止で切り替え可能） | 🟡 メンテナンス停止が必要になる場合がある |
-| **リグレッション検知** | 🟢 **CI上で事前に 100% 検知可能** | 🔴 本番投入後や手動テストまで検知が遅れがち |
-| **実装工数・期間** | 🟡 一時的に v1/v2 コードと設定が共存 | 🟢 短期間で書き換えられる |
-| **バイナリサイズ** | 🟡 移行期間中のみ両 SDK を内包 | 🟢 常に単一 SDK のみ |
+| **Migration Risk** | 🟢 **Extremely Low** (Parity verified in CI + instant rollback) | 🔴 **High** (Unexpected behavioral gaps in production) |
+| **Downtime** | 🟢 **Zero** (Seamless live transition) | 🟡 May require maintenance window |
+| **Regression Detection** | 🟢 **100% caught in CI before deployment** | 🔴 Discovered late during manual QA or in production |
+| **Implementation Effort** | 🟡 Temporary co-existence of v1/v2 code | 🟢 Quick code replacement |
+| **Binary Size** | 🟡 Both SDKs packaged during migration phase | 🟢 Single SDK packaged at all times |
 
 ---
 
-## 📊 v1 vs v2 徹底比較
+## 📊 v1 vs v2 Side-by-Side Comparison
 
-### 1. 依存関係 (Gradle Version Catalog)
+### 1. Dependencies (Gradle Version Catalog)
 
-本プロジェクトでは Gradle 標準の **Version Catalog** (`gradle/libs.versions.toml`) を用いて依存関係を一元管理しています。AWS SDK v2 はモジュール化されており、必要な機能のみを個別に追加できます。また BOM (Bill of Materials) を利用してバージョンを一元管理します。
+Dependencies are centrally managed using Gradle **Version Catalogs** (`gradle/libs.versions.toml`). AWS SDK v2 is modularized and uses a Bill of Materials (BOM).
 
 ```toml
 # gradle/libs.versions.toml
@@ -168,41 +189,41 @@ dependencies {
     implementation(platform(libs.aws.sdk.v2.bom))
     implementation(libs.aws.sdk.v2.dynamodb)
     implementation(libs.aws.sdk.v2.dynamodb.enhanced)
-    implementation(libs.aws.sdk.v2.url.connection.client) // HTTP クライアント
+    implementation(libs.aws.sdk.v2.url.connection.client) // Lightweight HTTP client
     implementation(libs.jackson.databind)
 }
 ```
 
-### 2. クライアント初期化
+### 2. Client Initialization
 
-| 項目 | SDK v1 | SDK v2 |
+| Feature | SDK v1 | SDK v2 |
 | :--- | :--- | :--- |
-| **基本クライアント** | `AmazonDynamoDBClientBuilder.standard()...build()` | `DynamoDbClient.builder()...build()` |
-| **高レベルマッパー** | `new DynamoDBMapper(amazonDynamoDB)` | `DynamoDbEnhancedClient.builder().dynamoDbClient(client).build()` |
-| **HTTP クライアント** | Apache HTTP Client (固定) | プラガブル (`url-connection-client`, `apache-client`, `netty-nio-client`) |
-| **エンドポイント設定** | `builder.withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, region))` | `builder.endpointOverride(URI.create(endpoint))` |
+| **Base Client** | `AmazonDynamoDBClientBuilder.standard()...build()` | `DynamoDbClient.builder()...build()` |
+| **High-Level Mapper** | `new DynamoDBMapper(amazonDynamoDB)` | `DynamoDbEnhancedClient.builder().dynamoDbClient(client).build()` |
+| **HTTP Client** | Apache HTTP Client (Fixed) | Pluggable (`url-connection-client`, `apache-client`, `netty-nio-client`) |
+| **Endpoint Config** | `builder.withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, region))` | `builder.endpointOverride(URI.create(endpoint))` |
 
-### 3. Entity / DTO 定義 (アノテーション比較)
+### 3. Entity / DTO Mapping (Annotation Comparison)
 
-| 機能 | SDK v1 (`OrderItemV1`) | SDK v2 (`OrderItemV2`) |
+| Feature | SDK v1 (`OrderItemV1`) | SDK v2 (`OrderItemV2`) |
 | :--- | :--- | :--- |
-| **クラス宣言** | `@DynamoDBTable(tableName = "orders")` | `@DynamoDbBean`（テーブル名はコード側でバインド） |
+| **Class Declaration** | `@DynamoDBTable(tableName = "orders")` | `@DynamoDbBean` (Table name bound programmatically) |
 | **Partition Key (PK)** | `@DynamoDBHashKey(attributeName = "customerId")` | `@DynamoDbPartitionKey`<br>`@DynamoDbAttribute("customerId")` |
 | **Sort Key (SK)** | `@DynamoDBRangeKey(attributeName = "orderId")` | `@DynamoDbSortKey`<br>`@DynamoDbAttribute("orderId")` |
 | **GSI PK** | `@DynamoDBIndexHashKey(globalSecondaryIndexName = "...", attributeName = "...")` | `@DynamoDbSecondaryPartitionKey(indexNames = "...")` |
 | **GSI SK** | `@DynamoDBIndexRangeKey(globalSecondaryIndexName = "...", attributeName = "...")` | `@DynamoDbSecondarySortKey(indexNames = "...")` |
-| **楽観的ロック** | `@DynamoDBVersionAttribute(attributeName = "version")` | `@DynamoDbVersionAttribute`<br>`@DynamoDbAttribute("version")` |
-| **日時型 (`Instant`)** | `@DynamoDBTypeConverted(converter = InstantTypeConverter.class)` (要自作) | デフォルトで ISO-8601 文字列として自動変換 |
-| **Enum 型** | `@DynamoDBTypeConvertedEnum` | デフォルトで Enum の `name()` 文字列として自動変換 |
-| **ネストオブジェクト** | `@DynamoDBDocument` | `@DynamoDbBean` |
+| **Optimistic Lock** | `@DynamoDBVersionAttribute(attributeName = "version")` | `@DynamoDbVersionAttribute`<br>`@DynamoDbAttribute("version")` |
+| **Date/Time (`Instant`)** | `@DynamoDBTypeConverted(converter = InstantTypeConverter.class)` (Custom) | Auto-converted to ISO-8601 string natively |
+| **Enum** | `@DynamoDBTypeConvertedEnum` | Auto-converted to enum `name()` string natively |
+| **Nested Objects** | `@DynamoDBDocument` | `@DynamoDbBean` |
 
-### 4. 操作別実装比較
+### 4. Operation Implementations
 
-#### (1) テーブル参照
-- **v1**: DTO クラスに `@DynamoDBTable(tableName = "orders")` を静的に記述。
-- **v2**: `enhancedClient.table("orders", TableSchema.fromBean(OrderItemV2.class))` を使用して動的にバインド。
+#### (1) Table Reference
+- **v1**: Statically declared on DTO via `@DynamoDBTable(tableName = "orders")`.
+- **v2**: Dynamically bound via `enhancedClient.table("orders", TableSchema.fromBean(OrderItemV2.class))`.
 
-#### (2) 主キー検索 (GetItem / findById)
+#### (2) Primary Key Lookup (GetItem / findById)
 - **v1**:
   ```java
   OrderItemV1 item = mapper.load(OrderItemV1.class, customerId, orderId);
@@ -213,32 +234,32 @@ dependencies {
   OrderItemV2 item = table.getItem(r -> r.key(key).consistentRead(true));
   ```
 
-#### (3) 楽観的ロック更新 (updateStatus)
+#### (3) Optimistic Locking Update (updateStatus)
 - **v1**:
   ```java
   item.setStatus(newStatus);
-  item.setVersion(expectedVersion); // 期待するバージョンをセット
-  mapper.save(item); // 不一致なら ConditionalCheckFailedException
+  item.setVersion(expectedVersion); // Set expected version
+  mapper.save(item); // Throws ConditionalCheckFailedException on conflict
   ```
 - **v2**:
   ```java
   item.setStatus(newStatus);
-  item.setVersion(expectedVersion); // 期待するバージョンをセット
-  table.putItem(item); // 自動でバージョン検証 & インクリメント
+  item.setVersion(expectedVersion); // Set expected version
+  table.putItem(item); // Validates version & auto-increments in DynamoDB
   ```
 
-#### (4) バッチ処理 (batchSave / batchFindByIds)
+#### (4) Batch Operations (batchSave / batchFindByIds)
 - **v1 (Batch Save / Batch Load)**:
   ```java
-  // 一括保存
+  // Batch Save
   mapper.batchSave(items);
 
-  // 一括取得
+  // Batch Load
   Map<String, List<Object>> results = mapper.batchLoad(itemsToLoad);
   ```
 - **v2 (BatchWriteItem / BatchGetItem)**:
   ```java
-  // 一括保存
+  // Batch Write
   WriteBatch<OrderItemV2> writeBatch = WriteBatch.builder(OrderItemV2.class)
           .mappedTableResource(table)
           .addPutItem(item1)
@@ -246,7 +267,7 @@ dependencies {
           .build();
   enhancedClient.batchWriteItem(r -> r.writeBatches(writeBatch));
 
-  // 一括取得
+  // Batch Get
   ReadBatch readBatch = ReadBatch.builder(OrderItemV2.class)
           .mappedTableResource(table)
           .addGetItem(key1)
@@ -255,7 +276,7 @@ dependencies {
   enhancedClient.batchGetItem(r -> r.readBatches(readBatch)).resultsForTable(table);
   ```
 
-#### (5) トランザクション処理 (executeInTransaction)
+#### (5) Transaction Operations (executeInTransaction)
 - **v1 (TransactionWriteRequest)**:
   ```java
   TransactionWriteRequest txRequest = new TransactionWriteRequest();
@@ -272,7 +293,7 @@ dependencies {
   enhancedClient.transactWriteItems(txRequest);
   ```
 
-#### (6) GSI クエリ (findByStatus)
+#### (6) GSI Query (findByStatus)
 - **v1**:
   ```java
   OrderItemV1 hashKeyValues = new OrderItemV1();
@@ -294,93 +315,91 @@ dependencies {
        .forEach(page -> results.addAll(page.items()));
   ```
 
-#### (7) ページネーション付きスキャン (scanOrdersPaged)
-- **v1**: `mapper.scanPage(OrderItemV1.class, scanExpression)` から `page.getLastEvaluatedKey()` (`Map<String, com.amazonaws.services.dynamodbv2.model.AttributeValue>`) を取得。
-- **v2**: `table.scan(request).iterator().next()` から `page.lastEvaluatedKey()` (`Map<String, software.amazon.awssdk.services.dynamodb.model.AttributeValue>`) を取得。
+#### (7) Paged Scan (scanOrdersPaged)
+- **v1**: Retrieve `page.getLastEvaluatedKey()` (`Map<String, com.amazonaws.services.dynamodbv2.model.AttributeValue>`) from `mapper.scanPage(OrderItemV1.class, scanExpression)`.
+- **v2**: Retrieve `page.lastEvaluatedKey()` (`Map<String, software.amazon.awssdk.services.dynamodb.model.AttributeValue>`) from `table.scan(request).iterator().next()`.
 
 ---
 
-## ⚠️ 移行時の重要ポイント (Gotchas)
+## ⚠️ Key Migration Gotchas
 
-移行時に注意すべき代表的なポイントは以下の通りです（詳しいコード例や対策は [AGENTS.md#6-dynamodb-移行時の重要注意事項-gotchas](AGENTS.md#6-dynamodb-移行時の重要注意事項-gotchas) を参照）。
+Common pitfalls when migrating from v1 to v2 (detailed in [AGENTS.md#6-dynamodb-migration-gotchas--best-practices](AGENTS.md#6-dynamodb-migration-gotchas--best-practices)):
 
-1. **`Instant`（日時型）のシリアライズ仕様**: v1 では要カスタムコンバーター、v2 では ISO-8601 文字列へ自動変換。
-2. **楽観的ロック更新時のバージョン値**: v1 は引数オブジェクトをインプレース更新、v2 はオブジェクトを変更しないため再取得が必要。
-3. **`AttributeValue` などの同名クラス競合**: パッケージを `repository.v1` と `repository.v2` で完全に分離して回避。
-4. **HTTP クライアントの選択**: v2 では軽量な `url-connection-client` を推奨採用。
+1. **`Instant` (Date/Time) Serialization**: v1 requires a custom type converter; v2 natively formats to ISO-8601 strings.
+2. **Version Attribute After Optimistic Lock**: v1 mutates the Java object in-place with the incremented version; v2 does not mutate the passed object.
+3. **Class Name Collisions**: Types like `AttributeValue` exist in both SDK packages. Physically separate v1 and v2 packages to avoid confusion.
+4. **HTTP Client Selection**: SDK v2 allows choosing between `url-connection-client` (lightweight), `apache-client` (high throughput), and `netty-nio-client` (async).
 
 ---
 
-## 📁 プロジェクト構成
+## 📁 Project Structure
 
 ```
 .
-├── build.gradle.kts                                  # ビルド定義 (Java 25, Version Catalog 参照)
-├── settings.gradle.kts                               # プロジェクト設定
-├── gradlew / gradlew.bat                             # Gradle Wrapper スクリプト
+├── build.gradle.kts                                  # Build configuration (Java 25, Version Catalog)
+├── settings.gradle.kts                               # Project settings
+├── gradlew / gradlew.bat                             # Gradle wrapper scripts
 ├── gradle/
-│   ├── libs.versions.toml                            # 【Version Catalog】依存関係・バージョン一元管理
-│   └── wrapper/                                      # Gradle 9.1.0 Wrapper 設定
-├── README.md                                         # 本ドキュメント (概要 & v1/v2 比較)
-├── AGENTS.md                                         # 【開発指示書】アーキテクチャ詳細・規約・Gotchas
+│   ├── libs.versions.toml                            # [Version Catalog] Centralized dependency management
+│   └── wrapper/                                      # Gradle 9.1.0 wrapper configuration
+├── README.md                                         # Main documentation (English)
+├── README_ja.md                                      # Japanese documentation
+├── AGENTS.md                                         # [Developer/Agent Guide] Architecture, standards & gotchas
 └── src/
     ├── main/java/com/example/dynamodb/
-    │   ├── domain/                                   # 【ドメイン層】SDK非依存の純粋なPOJO / Record
-    │   │   ├── Order.java                            # 注文ドメインエンティティ
-    │   │   ├── OrderKey.java                         # 注文主キー Record
-    │   │   ├── OrderLineItem.java                    # 注文明細値オブジェクト
-    │   │   └── OrderStatus.java                      # 注文ステータス Enum
+    │   ├── domain/                                   # [Domain Layer] SDK-independent pure POJOs / Records
+    │   │   ├── Order.java                            # Order domain entity
+    │   │   ├── OrderKey.java                         # Order primary key record
+    │   │   ├── OrderLineItem.java                    # Order line item value object
+    │   │   └── OrderStatus.java                      # Order status enum
     │   ├── repository/
-    │   │   ├── OrderRepository.java                  # 統一リポジトリインターフェース
-    │   │   ├── PageResult.java                       # ページネーション共通結果オブジェクト
-    │   │   ├── v1/                                   # 【AWS SDK v1 実装】
-    │   │   │   ├── OrderItemV1.java                  # DynamoDBMapper 用 DTO
-    │   │   │   ├── OrderLineItemV1.java              # DynamoDBMapper 用 ネストDTO
-    │   │   │   └── V1DynamoDbOrderRepository.java    # v1 リポジトリ実装 (CRUD, Query, Scan, Batch, Tx)
-    │   │   └── v2/                                   # 【AWS SDK v2 実装】
-    │   │       ├── OrderItemV2.java                  # DynamoDbEnhancedClient 用 DTO
-    │   │       ├── OrderLineItemV2.java              # DynamoDbEnhancedClient 用 ネストDTO
-    │   │       └── V2DynamoDbEnhancedOrderRepository.java # v2 リポジトリ実装 (CRUD, Query, Scan, Batch, Tx)
-    │   └── config/                                   # 【クライアント設定】
-    │       ├── DynamoDbV1Config.java                 # AmazonDynamoDB クライアント生成
-    │       └── DynamoDbV2Config.java                 # DynamoDbClient / EnhancedClient 生成
+    │   │   ├── OrderRepository.java                  # Unified repository interface
+    │   │   ├── PageResult.java                       # Pagination result wrapper
+    │   │   ├── v1/                                   # [AWS SDK v1 Implementation]
+    │   │   │   ├── OrderItemV1.java                  # DynamoDBMapper DTO
+    │   │   │   ├── OrderLineItemV1.java              # DynamoDBMapper nested DTO
+    │   │   │   └── V1DynamoDbOrderRepository.java    # v1 Repository implementation
+    │   │   └── v2/                                   # [AWS SDK v2 Implementation]
+    │   │       ├── OrderItemV2.java                  # DynamoDbEnhancedClient DTO
+    │   │       ├── OrderLineItemV2.java              # DynamoDbEnhancedClient nested DTO
+    │   │       └── V2DynamoDbEnhancedOrderRepository.java # v2 Repository implementation
+    │   └── config/                                   # [Client Configuration]
+    │       ├── DynamoDbV1Config.java                 # AmazonDynamoDB client factory
+    │       └── DynamoDbV2Config.java                 # DynamoDbClient / EnhancedClient factory
     └── test/java/com/example/dynamodb/
-        ├── AbstractDynamoDbContainerTest.java        # Testcontainers DynamoDB Local 初期化基底クラス
-        ├── OrderRepositoryContractTest.java          # v1/v2 共通契約テストスイート (全12ケース)
-        ├── V1OrderRepositoryTest.java                # v1 実装テストランナー (12ケース実行)
-        └── V2OrderRepositoryTest.java                # v2 実装テストランナー (12ケース実行)
+        ├── AbstractDynamoDbContainerTest.java        # Testcontainers DynamoDB Local base class
+        ├── OrderRepositoryContractTest.java          # Shared contract test suite (12 scenarios)
+        ├── V1OrderRepositoryTest.java                # v1 Test runner
+        └── V2OrderRepositoryTest.java                # v2 Test runner
 ```
 
 ---
 
-## 🚀 ビルド & テスト実行手順
+## 🚀 Build & Test Instructions
 
 ```bash
-# 1. コードフォーマット検証・適用 (Spotless)
-./gradlew spotlessCheck   # フォーマット検査
-./gradlew spotlessApply   # 自動フォーマット適用
+# 1. Check and apply Spotless code formatting
+./gradlew spotlessCheck   # Check format
+./gradlew spotlessApply   # Auto-apply format
 
-# 2. ビルド & Javadoc 検証 (テスト除外)
+# 2. Build and verify Javadoc (excluding tests)
 ./gradlew build -x test
 
-# 3. 全契約テストの実行 (※ Docker デーモンが起動している環境で実行)
+# 3. Run all contract tests (Requires running Docker daemon)
 ./gradlew test
 ```
 
-`Testcontainers` により DynamoDB Local (`amazon/dynamodb-local:latest`) コンテナが自動起動し、以下の 12 シナリオが **v1 実装と v2 実装の双方（合計 24 テストケース）** に対し実行されます。
+`Testcontainers` automatically spins up DynamoDB Local (`amazon/dynamodb-local:latest`) and runs **12 scenarios against both v1 and v2 implementations (24 total test cases)**:
 
-1. **CRUD: 注文の保存と主キー（customerId, orderId）による取得** (`testSaveAndFindById`)
-2. **CRUD: 存在しないキーでの検索時に empty が返ることの確認** (`testFindByIdNotFound`)
-3. **CRUD: 楽観的ロック（@Version）による更新とバージョン競合検知** (`testOptimisticLockingSuccessAndConflict`)
-4. **CRUD: 注文の削除** (`testDelete`)
-5. **Batch: 複数注文の一括保存（batchSave）と一括取得（batchFindByIds）** (`testBatchSaveAndBatchFindByIds`)
-6. **Batch: 存在しない主キーを含む一括取得での正常返却** (`testBatchFindByIds_PartialAndNotFound`)
-7. **Transaction: 複数注文のアトミックな一括書き込み** (`testExecuteInTransaction_Success`)
-8. **Query: 顧客ID（Partition Key）での全件取得** (`testFindByCustomerId`)
-9. **Query: 顧客ID + 注文日時範囲（Filter / Date Range）での取得** (`testFindByCustomerIdAndDateRange`)
-10. **Query (GSI): 注文ステータスによる GSI 検索** (`testFindByStatusGsi`)
-11. **Scan: 金額条件（FilterExpression）付きスキャン** (`testScanWithMinAmount`)
-12. **Scan: ページネーション付きスキャンによる全件走査** (`testScanOrdersPaged`)
-
-
-
+1. **CRUD: Save order and find by primary key (customerId, orderId)** (`testSaveAndFindById`)
+2. **CRUD: Return empty Optional when key is not found** (`testFindByIdNotFound`)
+3. **CRUD: Optimistic locking update and version conflict detection** (`testOptimisticLockingSuccessAndConflict`)
+4. **CRUD: Delete order** (`testDelete`)
+5. **Batch: Batch save and batch find by keys** (`testBatchSaveAndBatchFindByIds`)
+6. **Batch: Partial batch retrieval with missing keys** (`testBatchFindByIds_PartialAndNotFound`)
+7. **Transaction: Atomic batch write transaction** (`testExecuteInTransaction_Success`)
+8. **Query: Query all orders by customerId (Partition Key)** (`testFindByCustomerId`)
+9. **Query: Query orders by customerId and date range** (`testFindByCustomerIdAndDateRange`)
+10. **Query (GSI): Query orders by status using GSI** (`testFindByStatusGsi`)
+11. **Scan: Scan orders with amount filter expression** (`testScanWithMinAmount`)
+12. **Scan: Paged scan across full dataset** (`testScanOrdersPaged`)

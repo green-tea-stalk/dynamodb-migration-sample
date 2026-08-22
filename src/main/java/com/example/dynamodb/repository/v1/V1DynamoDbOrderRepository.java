@@ -28,7 +28,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * AWS SDK v1 (DynamoDBMapper) による OrderRepository 実装
+ * AWS SDK v1 (DynamoDBMapper) implementation of {@link OrderRepository}.
  */
 public class V1DynamoDbOrderRepository implements OrderRepository {
 
@@ -36,20 +36,20 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * {@link AmazonDynamoDB} クライアントを使用してリポジトリを初期化します。
+     * Initializes the repository using an {@link AmazonDynamoDB} client.
      *
      * @param dynamoDBClient
-     *            AWS SDK v1 の DynamoDB クライアント
+     *            AWS SDK v1 DynamoDB client
      */
     public V1DynamoDbOrderRepository(AmazonDynamoDB dynamoDBClient) {
         this(new DynamoDBMapper(dynamoDBClient, DynamoDBMapperConfig.DEFAULT));
     }
 
     /**
-     * {@link DynamoDBMapper} を指定してリポジトリを初期化します。
+     * Initializes the repository using a configured {@link DynamoDBMapper}.
      *
      * @param mapper
-     *            設定済みの {@link DynamoDBMapper}
+     *            Configured {@link DynamoDBMapper}
      */
     public V1DynamoDbOrderRepository(DynamoDBMapper mapper) {
         this.mapper = mapper;
@@ -59,7 +59,7 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
      * {@inheritDoc}
      *
      * @throws IllegalArgumentException
-     *             order が null の場合
+     *             if order is null
      */
     @Override
     public Order save(Order order) {
@@ -90,9 +90,9 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
      * {@inheritDoc}
      *
      * @throws IllegalArgumentException
-     *             対象注文が存在しない場合
+     *             if the order is not found
      * @throws com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException
-     *             期待されるバージョンと不一致の場合
+     *             if the version number does not match expectedVersion
      */
     @Override
     public Order updateStatus(String customerId, String orderId, OrderStatus newStatus, long expectedVersion) {
@@ -104,8 +104,8 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
         item.setVersion(expectedVersion);
         item.setUpdatedAt(Instant.now());
 
-        // DynamoDBMapper は @DynamoDBVersionAttribute が付与されている場合、
-        // 既存のバージョン番号と一致することを自動的に検証してインクリメント保存します。
+        // DynamoDBMapper validates matching version when @DynamoDBVersionAttribute is
+        // present and increments it on save.
         mapper.save(item);
         return item.toDomain();
     }
@@ -276,11 +276,12 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
     }
 
     /**
-     * DynamoDB の lastEvaluatedKey を Base64 URL セーフ文字列のページネーショントークンにエンコードします。
+     * Encodes DynamoDB lastEvaluatedKey into a Base64 URL-safe pagination token
+     * string.
      *
      * @param lastEvaluatedKey
-     *            DynamoDB の最終評価キー
-     * @return Base64 エンコードされたトークン文字列（キーが空または null の場合は null）
+     *            DynamoDB last evaluated key map
+     * @return Base64 encoded pagination token (null if map is empty or null)
      */
     private String encodePaginationToken(Map<String, AttributeValue> lastEvaluatedKey) {
         if (lastEvaluatedKey == null || lastEvaluatedKey.isEmpty()) {
@@ -303,13 +304,14 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
     }
 
     /**
-     * Base64 URL セーフ文字列のページネーショントークンを DynamoDB の exclusiveStartKey にデコードします。
+     * Decodes a Base64 URL-safe pagination token string into a DynamoDB
+     * exclusiveStartKey map.
      *
      * @param token
-     *            Base64 エンコードされたトークン文字列
-     * @return 復元された DynamoDB の属性値マップ
+     *            Base64 encoded pagination token string
+     * @return Decoded DynamoDB attribute value map
      * @throws IllegalArgumentException
-     *             トークンのデコードに失敗した場合
+     *             if token decoding fails
      */
     private Map<String, AttributeValue> decodePaginationToken(String token) {
         try {

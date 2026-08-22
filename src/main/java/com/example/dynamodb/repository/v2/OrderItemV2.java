@@ -4,7 +4,12 @@ import com.example.dynamodb.domain.Order;
 import com.example.dynamodb.domain.OrderStatus;
 import lombok.Setter;
 import software.amazon.awssdk.enhanced.dynamodb.extensions.annotations.DynamoDbVersionAttribute;
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.*;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSecondaryPartitionKey;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSecondarySortKey;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -14,49 +19,49 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * AWS SDK v2 用 DynamoDB Entity (DynamoDbEnhancedClient)
+ * DynamoDB Entity DTO for AWS SDK v2 (DynamoDbEnhancedClient).
  */
 @DynamoDbBean
 @Setter
 public class OrderItemV2 {
 
-    /** 顧客ID（Partition Key） */
+    /** Customer ID (Partition Key) */
     private String customerId;
 
-    /** 注文ID（Sort Key） */
+    /** Order ID (Sort Key) */
     private String orderId;
 
-    /** 注文日時 */
+    /** Order timestamp */
     private Instant orderDate;
 
-    /** 注文ステータス */
+    /** Order status */
     private OrderStatus status;
 
-    /** 注文合計金額 */
+    /** Total order amount */
     private BigDecimal totalAmount;
 
-    /** 注文明細アイテムリスト */
+    /** List of order line items */
     private List<OrderLineItemV2> items;
 
-    /** 楽観的ロック用バージョン番号 */
+    /** Version number for optimistic locking */
     private Long version;
 
-    /** 最終更新日時 */
+    /** Last updated timestamp */
     private Instant updatedAt;
 
     /**
-     * デフォルトコンストラクタ。
+     * Default constructor.
      */
     public OrderItemV2() {
         this.items = new ArrayList<>();
     }
 
     /**
-     * ドメインモデル {@link Order} から SDK v2 用エンティティを生成します。
+     * Converts a domain model {@link Order} to an SDK v2 DTO entity.
      *
      * @param domain
-     *            変換元のドメイン注文モデル
-     * @return 変換後の {@link OrderItemV2} インスタンス（引数が null の場合は null）
+     *            Source domain order model
+     * @return Converted {@link OrderItemV2} instance (null if input is null)
      */
     public static OrderItemV2 fromDomain(Order domain) {
         if (domain == null) {
@@ -77,9 +82,9 @@ public class OrderItemV2 {
     }
 
     /**
-     * SDK v2 用エンティティからドメインモデル {@link Order} へ変換します。
+     * Converts this SDK v2 DTO entity to a domain model {@link Order}.
      *
-     * @return 変換後のドメイン注文モデル
+     * @return Converted domain order model
      */
     public Order toDomain() {
         return new Order(customerId, orderId, orderDate, status, totalAmount,
@@ -90,9 +95,9 @@ public class OrderItemV2 {
     }
 
     /**
-     * 顧客ID（Partition Key）を取得します。
+     * Returns the customer ID (Partition Key).
      *
-     * @return 顧客ID
+     * @return Customer ID
      */
     @DynamoDbPartitionKey
     @DynamoDbAttribute("customerId")
@@ -101,9 +106,9 @@ public class OrderItemV2 {
     }
 
     /**
-     * 注文ID（Sort Key）を取得します。
+     * Returns the order ID (Sort Key).
      *
-     * @return 注文ID
+     * @return Order ID
      */
     @DynamoDbSortKey
     @DynamoDbAttribute("orderId")
@@ -112,9 +117,9 @@ public class OrderItemV2 {
     }
 
     /**
-     * 注文日時を取得します。GSI の Sort Key としても機能します。
+     * Returns the order date. Also functions as GSI Sort Key.
      *
-     * @return 注文日時
+     * @return Order date
      */
     @DynamoDbSecondarySortKey(indexNames = "status-orderDate-index")
     @DynamoDbAttribute("orderDate")
@@ -123,9 +128,9 @@ public class OrderItemV2 {
     }
 
     /**
-     * 注文ステータスを取得します。GSI の Partition Key としても機能します。
+     * Returns the order status. Also functions as GSI Partition Key.
      *
-     * @return 注文ステータス
+     * @return Order status
      */
     @DynamoDbSecondaryPartitionKey(indexNames = "status-orderDate-index")
     @DynamoDbAttribute("status")
@@ -134,9 +139,9 @@ public class OrderItemV2 {
     }
 
     /**
-     * 注文合計金額を取得します。
+     * Returns the total order amount.
      *
-     * @return 注文合計金額
+     * @return Total amount
      */
     @DynamoDbAttribute("totalAmount")
     public BigDecimal getTotalAmount() {
@@ -144,9 +149,9 @@ public class OrderItemV2 {
     }
 
     /**
-     * 注文明細アイテムリストを取得します。
+     * Returns the list of order line items.
      *
-     * @return 注文明細アイテムリスト
+     * @return List of order line items
      */
     @DynamoDbAttribute("items")
     public List<OrderLineItemV2> getItems() {
@@ -154,19 +159,19 @@ public class OrderItemV2 {
     }
 
     /**
-     * 注文明細アイテムリストを設定します。
+     * Sets the list of order line items.
      *
      * @param items
-     *            注文明細アイテムリスト
+     *            List of order line items
      */
     public void setItems(List<OrderLineItemV2> items) {
         this.items = items != null ? items : new ArrayList<>();
     }
 
     /**
-     * 楽観的ロック用のバージョン番号を取得します。
+     * Returns the version number for optimistic locking.
      *
-     * @return バージョン番号
+     * @return Version number
      */
     @DynamoDbVersionAttribute
     @DynamoDbAttribute("version")
@@ -175,9 +180,9 @@ public class OrderItemV2 {
     }
 
     /**
-     * 最終更新日時を取得します。
+     * Returns the last updated timestamp.
      *
-     * @return 最終更新日時
+     * @return Last updated timestamp
      */
     @DynamoDbAttribute("updatedAt")
     public Instant getUpdatedAt() {

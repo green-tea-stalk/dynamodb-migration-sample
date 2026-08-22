@@ -1,17 +1,17 @@
 package com.example.dynamodb.domain;
 
 /**
- * 注文ステータスを表す列挙型
+ * Enumeration representing order status.
  */
 public enum OrderStatus {
-    /** 注文作成済み */
+    /** Order created */
     CREATED,
-    /** 決済完了 */
+    /** Payment completed */
     PAID,
-    /** 出荷済み */
+    /** Order shipped */
     SHIPPED,
-    /** 配達完了 */
+    /** Order delivered */
     DELIVERED,
-    /** キャンセル済み */
+    /** Order cancelled */
     CANCELLED
 }

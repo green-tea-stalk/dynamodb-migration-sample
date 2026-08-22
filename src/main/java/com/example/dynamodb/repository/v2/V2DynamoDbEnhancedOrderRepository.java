@@ -38,13 +38,14 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * AWS SDK v2 (DynamoDbEnhancedClient) による OrderRepository 実装
+ * AWS SDK v2 (DynamoDbEnhancedClient) implementation of
+ * {@link OrderRepository}.
  */
 public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
 
-    /** デフォルトのテーブル名 */
+    /** Default DynamoDB table name */
     public static final String DEFAULT_TABLE_NAME = "orders";
-    /** ステータス・注文日時インデックス（GSI）の名前 */
+    /** Status and OrderDate Global Secondary Index (GSI) name */
     public static final String GSI_STATUS_ORDER_DATE = "status-orderDate-index";
 
     private final DynamoDbEnhancedClient enhancedClient;
@@ -52,22 +53,22 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * デフォルトテーブル名（"orders"）を使用してリポジトリを初期化します。
+     * Initializes the repository using the default table name ("orders").
      *
      * @param enhancedClient
-     *            AWS SDK v2 の {@link DynamoDbEnhancedClient} インスタンス
+     *            AWS SDK v2 {@link DynamoDbEnhancedClient} instance
      */
     public V2DynamoDbEnhancedOrderRepository(DynamoDbEnhancedClient enhancedClient) {
         this(enhancedClient, DEFAULT_TABLE_NAME);
     }
 
     /**
-     * テーブル名を明示的に指定してリポジトリを初期化します。
+     * Initializes the repository with an explicit table name.
      *
      * @param enhancedClient
-     *            AWS SDK v2 の {@link DynamoDbEnhancedClient} インスタンス
+     *            AWS SDK v2 {@link DynamoDbEnhancedClient} instance
      * @param tableName
-     *            対象の DynamoDB テーブル名
+     *            Target DynamoDB table name
      */
     public V2DynamoDbEnhancedOrderRepository(DynamoDbEnhancedClient enhancedClient, String tableName) {
         this.enhancedClient = enhancedClient;
@@ -78,7 +79,7 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
      * {@inheritDoc}
      *
      * @throws IllegalArgumentException
-     *             order が null の場合
+     *             if order is null
      */
     @Override
     public Order save(Order order) {
@@ -111,9 +112,9 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
      * {@inheritDoc}
      *
      * @throws IllegalArgumentException
-     *             対象注文が存在しない場合
+     *             if target order is not found
      * @throws software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException
-     *             期待されるバージョンと不一致の場合
+     *             if version does not match expectedVersion
      */
     @Override
     public Order updateStatus(String customerId, String orderId, OrderStatus newStatus, long expectedVersion) {
@@ -128,7 +129,8 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
         item.setVersion(expectedVersion);
         item.setUpdatedAt(Instant.now());
 
-        // @DynamoDbVersionAttribute により、putItem 時に version の一致検証と自動インクリメントが実行されます。
+        // @DynamoDbVersionAttribute validates matching version and automatically
+        // increments it on putItem.
         table.putItem(item);
         return findById(customerId, orderId).orElseGet(item::toDomain);
     }
@@ -314,11 +316,12 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
     }
 
     /**
-     * DynamoDB の lastEvaluatedKey を Base64 URL セーフ文字列のページネーショントークンにエンコードします。
+     * Encodes DynamoDB lastEvaluatedKey into a Base64 URL-safe pagination token
+     * string.
      *
      * @param lastEvaluatedKey
-     *            DynamoDB の最終評価キー
-     * @return Base64 エンコードされたトークン文字列（キーが空または null の場合は null）
+     *            DynamoDB last evaluated key map
+     * @return Base64 encoded pagination token (null if map is empty or null)
      */
     private String encodePaginationToken(Map<String, AttributeValue> lastEvaluatedKey) {
         if (lastEvaluatedKey == null || lastEvaluatedKey.isEmpty()) {
@@ -341,13 +344,14 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
     }
 
     /**
-     * Base64 URL セーフ文字列のページネーショントークンを DynamoDB の exclusiveStartKey にデコードします。
+     * Decodes a Base64 URL-safe pagination token string into a DynamoDB
+     * exclusiveStartKey map.
      *
      * @param token
-     *            Base64 エンコードされたトークン文字列
-     * @return 復元された DynamoDB の属性値マップ
+     *            Base64 encoded pagination token string
+     * @return Decoded DynamoDB attribute value map
      * @throws IllegalArgumentException
-     *             トークンのデコードに失敗した場合
+     *             if token decoding fails
      */
     private Map<String, AttributeValue> decodePaginationToken(String token) {
         try {

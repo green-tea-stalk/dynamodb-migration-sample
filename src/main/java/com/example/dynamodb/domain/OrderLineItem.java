@@ -7,7 +7,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 /**
- * 注文明細アイテム（AWS SDK 非依存）
+ * Order line item value object (independent of AWS SDK).
  */
 @Data
 @AllArgsConstructor
@@ -15,27 +15,27 @@ import java.math.BigDecimal;
 public class OrderLineItem {
 
     /**
-     * デフォルトコンストラクタ。
+     * Default constructor.
      */
     public OrderLineItem() {
     }
 
-    /** 商品ID */
+    /** Item identifier */
     private String itemId;
 
-    /** 商品名 */
+    /** Item name */
     private String itemName;
 
-    /** 数量 */
+    /** Quantity ordered */
     private int quantity;
 
-    /** 単価 */
+    /** Unit price */
     private BigDecimal unitPrice;
 
     /**
-     * 小計（単価 × 数量）を算出します。
+     * Calculates the subtotal (unitPrice * quantity).
      *
-     * @return 小計金額（単価が null の場合は 0）
+     * @return Subtotal amount (0 if unitPrice is null)
      */
     public BigDecimal getSubtotal() {
         if (unitPrice == null) {

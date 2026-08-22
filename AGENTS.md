@@ -1,29 +1,29 @@
 # AGENTS.md
 
-本ドキュメントは、本リポジトリで作業する AI コーディングエージェントおよび開発者向けのシステムガイドライン、アーキテクチャ設計原則、および移行注意事項（Gotchas）をまとめた指示書です。
+This document serves as the system guideline, architectural design principles, and migration gotchas for AI coding agents and developers working in this repository.
 
 ---
 
-## 1. プロジェクト概要
+## 1. Project Overview
 
-- **目的**: AWS SDK for Java v1 (`DynamoDBMapper`) から AWS SDK for Java v2 (`DynamoDbEnhancedClient`) への安全かつ段階的な移行リファレンス実装。
-- **主要な特徴**:
-  - CRUD、楽観的ロック、バッチ処理 (BatchWrite/BatchGet)、トランザクション処理 (TransactWriteItems)、クエリ (PK/SK, GSI)、スキャン、ページネーションの実装。
-  - v1 と v2 の振る舞いが完全に一致することを共通の契約テスト (`OrderRepositoryContractTest`) で検証。
+- **Goal**: A reference implementation for a safe, incremental migration from AWS SDK for Java v1 (`DynamoDBMapper`) to AWS SDK for Java v2 (`DynamoDbEnhancedClient`).
+- **Key Features**:
+  - Full support for CRUD, optimistic locking, batch operations (BatchWrite/BatchGet), transactions (TransactWriteItems), queries (PK/SK, GSI), scans, and pagination.
+  - Verification of 100% behavioral equivalence between v1 and v2 via a shared contract test (`OrderRepositoryContractTest`).
 
 ---
 
-## 2. 移行アーキテクチャ原則
+## 2. Architecture Principles for Safe Migration
 
-大規模・稼働中のシステムにおいて SDK を安全に移行するため、以下の 3 つの原則を厳格に維持してください。
+To safely migrate live, production systems, strictly adhere to these three core architectural principles:
 
 ```
                   ┌──────────────────────────────┐
-                  │    Domain Model (Order)      │  ← 純粋な POJO / Record (SDK非依存)
+                  │    Domain Model (Order)      │  ← Pure POJO / Record (SDK-Independent)
                   └──────────────▲───────────────┘
                                  │
                   ┌──────────────┴───────────────┐
-                  │ <<Interface>> OrderRepository│  ← 統一リポジトリインターフェース
+                  │ <<Interface>> OrderRepository│  ← Unified Repository Interface
                   └──────────────▲───────────────┘
                                  │
               ┌───────────────────┴───────────────────┐
@@ -36,84 +36,84 @@
 └────────────────────────────┘       └────────────────────────────┘
 ```
 
-1. **ドメイン層の完全な SDK 非依存 (Domain Independence)**:
-   - `com.example.dynamodb.domain` 配下のクラス（`Order`, `OrderKey`, `OrderLineItem`, `OrderStatus`）には、AWS SDK のクラス・アノテーションを絶対に持ち込んではいけません。
-2. **Repository パターンによるカプセル化 (Repository Encapsulation)**:
-   - 外部（Service 層等）との接点は `OrderRepository` インターフェースのみとし、SDK 固有の型（`DynamoDBMapper`, `DynamoDbEnhancedClient`, `AttributeValue` 等）を露出させないでください。
-3. **契約テストによる等価性保証 (Contract Testing)**:
-   - 新しい操作やメソッドを追加した場合は、必ず `OrderRepositoryContractTest` にテストケースを追加し、v1 実装 (`V1OrderRepositoryTest`) と v2 実装 (`V2OrderRepositoryTest`) の両方で同一の検証を実行してください（全 12 シナリオ、合計 24 テストケース）。
+1. **Domain Independence**:
+   - Classes under `com.example.dynamodb.domain` (`Order`, `OrderKey`, `OrderLineItem`, `OrderStatus`) must NEVER contain AWS SDK annotations or types.
+2. **Repository Encapsulation**:
+   - The business layer interacts only through the `OrderRepository` interface. Never expose SDK-specific types (`DynamoDBMapper`, `DynamoDbEnhancedClient`, `AttributeValue`, etc.).
+3. **Contract Testing for Parity**:
+   - Whenever adding or modifying operations, add corresponding test cases to `OrderRepositoryContractTest` so both v1 (`V1OrderRepositoryTest`) and v2 (`V2OrderRepositoryTest`) run identical assertions (12 scenarios, 24 total test cases).
 
 ---
 
-## 3. 前提条件 & 技術スタック
+## 3. Prerequisites & Technology Stack
 
-| 項目 | バージョン / 要件 | 備考 |
+| Item | Version / Requirement | Notes |
 | :--- | :--- | :--- |
-| **Java (JDK)** | **Java 25** | Gradle Toolchain で管理 |
-| **Gradle** | **9.1.0** | プロジェクト同梱の Gradle Wrapper (`./gradlew`) を使用 |
-| **依存関係管理** | **Gradle Version Catalog** | `gradle/libs.versions.toml` で一元管理（`libs.xxx` を使用） |
-| **ボイラープレート削減** | **Lombok 1.18.46** | `@Data`, `@Builder`, `@AllArgsConstructor` を活用 |
-| **テスト基盤** | **JUnit 5, AssertJ, Testcontainers** | Docker コンテナ上で `amazon/dynamodb-local:latest` を自動起動 |
+| **Java (JDK)** | **Java 25** | Managed via Gradle Toolchain |
+| **Gradle** | **9.1.0** | Use bundled Gradle Wrapper (`./gradlew`) |
+| **Dependency Management** | **Gradle Version Catalog** | Centralized in `gradle/libs.versions.toml` (`libs.xxx`) |
+| **Code Formatter** | **Spotless 7.0.2** | 4-space indentation, Eclipse JDT formatter |
+| **Boilerplate Reduction** | **Lombok 1.18.46** | Leverage `@Data`, `@Builder`, `@AllArgsConstructor` |
+| **Testing** | **JUnit 5, AssertJ, Testcontainers** | Auto-starts `amazon/dynamodb-local:latest` |
 
 ---
 
-## 4. コーディング規約 & ベストプラクティス
+## 4. Coding Conventions & Best Practices
 
-### 4.1. Javadoc 規約
-- すべての `public` クラス、インターフェース、メソッド、定数、コンストラクタには正確な Javadoc を記述してください。
-- サブクラスでの用途やオーバーライドが見込まれる `protected` メソッド・フィールドにも Javadoc を記述してください。
-- `@param`, `@return`, `@throws` を省略せず、明確に意味を記述してください。
-- Gradle の `javadoc` タスク（`./gradlew javadoc`）を実行した際に、**警告（Warning）が 0 件** である状態を維持してください。
+### 4.1. Javadoc Conventions
+- Write precise Javadoc for all `public` classes, interfaces, methods, constants, and constructors.
+- Provide Javadoc for `protected` methods/fields intended for subclass overriding or extension.
+- Always include `@param`, `@return`, and `@throws` with clear explanations.
+- Ensure `./gradlew javadoc` produces **0 warnings**.
 
-### 4.2. Lombok 規約
-- ドメインモデルやネスト DTO には `@Data`, `@Builder`, `@AllArgsConstructor` を活用してボイラープレートを削減してください。
-- Javadoc ツールがデフォルトコンストラクタのコメント欠落警告を出すのを防ぐため、`@NoArgsConstructor` 単体ではなく、**Javadoc 付きの明示的なデフォルトコンストラクタ** を定義してください。
-- 不変クラス用のアノテーション `@Value` は、DynamoDB ORM の JavaBean 規約（引数なしコンストラクタと Setter の要求）に反するため、DTO クラスには使用しないでください。
+### 4.2. Lombok Conventions
+- Use `@Data`, `@Builder`, and `@AllArgsConstructor` on domain models and nested DTOs.
+- To avoid missing Javadoc warnings on default constructors, define an **explicit default constructor with Javadoc** rather than relying solely on `@NoArgsConstructor`.
+- Do NOT use `@Value` on DTO classes because DynamoDB ORM JavaBean conventions require a no-arg constructor and mutable setters.
 
-### 4.3. DynamoDB DTO 規約
+### 4.3. DynamoDB DTO Conventions
 - **v1 (`OrderItemV1`, `OrderLineItemV1`)**:
-  - クラスに `@DynamoDBTable(tableName = "...")` / `@DynamoDBDocument` を付与。
-  - アクセサに `@DynamoDBHashKey`, `@DynamoDBRangeKey`, `@DynamoDBVersionAttribute` 等を付与。
+  - Class annotated with `@DynamoDBTable(tableName = "...")` / `@DynamoDBDocument`.
+  - Accessors annotated with `@DynamoDBHashKey`, `@DynamoDBRangeKey`, `@DynamoDBVersionAttribute`, etc.
 - **v2 (`OrderItemV2`, `OrderLineItemV2`)**:
-  - クラスに `@DynamoDbBean` を付与。
-  - `TableSchema.fromBean` がスキャンできるように、Getter メソッドに `@DynamoDbPartitionKey`, `@DynamoDbSortKey`, `@DynamoDbVersionAttribute` 等を付与。
+  - Class annotated with `@DynamoDbBean`.
+  - Getter methods annotated with `@DynamoDbPartitionKey`, `@DynamoDbSortKey`, `@DynamoDbVersionAttribute`, etc. for `TableSchema.fromBean` scanning.
 
 ---
 
-## 5. 開発 & 検証コマンド
+## 5. Development & Verification Commands
 
-エージェントおよび開発者が変更を行った後は、以下のコマンドを実行して品質を検証してください。
+After making any changes, run the following verification pipeline:
 
 ```bash
-# 1. コードフォーマット検証・適用 (Spotless)
-./gradlew spotlessCheck   # フォーマット検査
-./gradlew spotlessApply   # 自動フォーマット適用
+# 1. Code format check and apply (Spotless)
+./gradlew spotlessCheck   # Check format
+./gradlew spotlessApply   # Auto-apply format
 
-# 2. ソースコードおよびテストコードのコンパイル検証
+# 2. Compile source and test code
 ./gradlew compileJava compileTestJava
 
-# 3. Javadoc 生成検証（警告 0 件であることを確認）
+# 3. Generate and verify Javadoc (0 warnings required)
 ./gradlew javadoc
 
-# 4. テストを除外した全体ビルドチェック
+# 4. Full build check (excluding tests)
 ./gradlew check -x test
 
-# 5. 全契約テストの実行（※ Docker デーモンが起動している環境のみ）
+# 5. Run all contract tests (Requires Docker daemon)
 ./gradlew test
 ```
 
 ---
 
-## 6. DynamoDB 移行時の重要注意事項 (Gotchas)
+## 6. DynamoDB Migration Gotchas & Best Practices
 
-1. **`Instant`（日時型）のシリアライズ仕様**:
-   - v1 (`DynamoDBMapper`): デフォルトで `Instant` を扱えないため、`DynamoDBTypeConverter<String, Instant>` によるカスタムコンバーターが必要。
-   - v2 (`DynamoDbEnhancedClient`): 標準で ISO-8601 文字列（例: `2026-08-22T01:45:00Z`）へ自動変換されるため、フォーマットの互換性に留意。
-2. **楽観的ロック (`@DynamoDbVersionAttribute`) 更新時のバージョン値**:
-   - v1: `mapper.save(item)` は渡したオブジェクトの `version` を自動でインクリメント後の値にインプレース更新します。
-   - v2: `table.putItem(item)` は引数の Java オブジェクトを変更しません。更新後の最新バージョン値が必要な場合は `getItem` で再取得するか、手動で加算を追跡する必要があります。
-3. **同名クラスの競合**:
-   - `AttributeValue` 等のクラス名が v1 (`com.amazonaws.services.dynamodbv2.model...`) と v2 (`software.amazon.awssdk.services.dynamodb.model...`) で衝突するため、必ず `repository.v1` と `repository.v2` でパッケージを物理的に隔離してください。
-4. **HTTP クライアントの選択**:
-   - SDK v2 では軽量な `url-connection-client`、高スループットな `apache-client`、非同期対応の `netty-nio-client` から選択可能。本リポジトリでは依存関係が最も軽量な `url-connection-client` を採用。
-
+1. **`Instant` (Date/Time) Serialization**:
+   - v1 (`DynamoDBMapper`): Cannot serialize `Instant` by default; requires a custom `DynamoDBTypeConverter<String, Instant>`.
+   - v2 (`DynamoDbEnhancedClient`): Automatically serialized to ISO-8601 strings (e.g., `2026-08-22T01:45:00Z`).
+2. **Version Attribute Value After Optimistic Lock**:
+   - v1: `mapper.save(item)` mutates the passed Java object in-place with the incremented version.
+   - v2: `table.putItem(item)` does NOT mutate the passed Java object. Fetch the latest version via `getItem` or track manual increments.
+3. **Class Name Collisions**:
+   - Classes like `AttributeValue` exist in both v1 (`com.amazonaws.services.dynamodbv2.model...`) and v2 (`software.amazon.awssdk.services.dynamodb.model...`). Always physically isolate them in `repository.v1` and `repository.v2` packages.
+4. **HTTP Client Selection**:
+   - SDK v2 supports `url-connection-client` (lightweight), `apache-client` (high throughput), and `netty-nio-client` (async). This project adopts the lightweight `url-connection-client`.

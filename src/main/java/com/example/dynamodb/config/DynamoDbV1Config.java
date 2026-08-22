@@ -9,26 +9,28 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import java.net.URI;
 
 /**
- * AWS SDK v1 AmazonDynamoDB クライアント設定ヘルパー
+ * Configuration helper for creating AWS SDK v1 {@link AmazonDynamoDB} client.
  */
 public class DynamoDbV1Config {
 
     private DynamoDbV1Config() {
-        // インスタンス化防止
+        // Prevent instantiation
     }
 
     /**
-     * AWS SDK v1 の {@link AmazonDynamoDB} クライアントを生成します。
+     * Creates an AWS SDK v1 {@link AmazonDynamoDB} client.
      *
      * @param endpoint
-     *            カスタムエンドポイントURI（DynamoDB Local 接続時などに指定、AWS実環境の場合は null）
+     *            Custom endpoint URI (e.g. for DynamoDB Local, null for AWS
+     *            production)
      * @param region
-     *            AWS リージョン名（null の場合はデフォルトで "us-east-1" を使用）
+     *            AWS region name (defaults to "us-east-1" if null)
      * @param accessKey
-     *            AWS アクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
+     *            AWS access key ID (null to use default credentials provider chain)
      * @param secretKey
-     *            AWS シークレットアクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
-     * @return 設定された {@link AmazonDynamoDB} クライアントインスタンス
+     *            AWS secret access key (null to use default credentials provider
+     *            chain)
+     * @return Configured {@link AmazonDynamoDB} client instance
      */
     public static AmazonDynamoDB createClient(URI endpoint, String region, String accessKey, String secretKey) {
         AmazonDynamoDBClientBuilder builder = AmazonDynamoDBClientBuilder.standard();

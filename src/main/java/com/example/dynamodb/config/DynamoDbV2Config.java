@@ -11,26 +11,29 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
 import java.net.URI;
 
 /**
- * AWS SDK v2 DynamoDbClient / DynamoDbEnhancedClient クライアント設定ヘルパー
+ * Configuration helper for creating AWS SDK v2 {@link DynamoDbClient} and
+ * {@link DynamoDbEnhancedClient}.
  */
 public class DynamoDbV2Config {
 
     private DynamoDbV2Config() {
-        // インスタンス化防止
+        // Prevent instantiation
     }
 
     /**
-     * AWS SDK v2 の {@link DynamoDbClient} クライアントを生成します。
+     * Creates an AWS SDK v2 {@link DynamoDbClient}.
      *
      * @param endpoint
-     *            カスタムエンドポイントURI（DynamoDB Local 接続時などに指定、AWS実環境の場合は null）
+     *            Custom endpoint URI (e.g. for DynamoDB Local, null for AWS
+     *            production)
      * @param region
-     *            AWS リージョン名（null の場合はデフォルトで {@link Region#US_EAST_1} を使用）
+     *            AWS region name (defaults to {@link Region#US_EAST_1} if null)
      * @param accessKey
-     *            AWS アクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
+     *            AWS access key ID (null to use default credentials provider chain)
      * @param secretKey
-     *            AWS シークレットアクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
-     * @return 設定された {@link DynamoDbClient} クライアントインスタンス
+     *            AWS secret access key (null to use default credentials provider
+     *            chain)
+     * @return Configured {@link DynamoDbClient} instance
      */
     public static DynamoDbClient createClient(URI endpoint, String region, String accessKey, String secretKey) {
         DynamoDbClientBuilder builder = DynamoDbClient.builder().httpClient(UrlConnectionHttpClient.create());
@@ -54,11 +57,12 @@ public class DynamoDbV2Config {
     }
 
     /**
-     * {@link DynamoDbClient} をラップした高レベルマッパー {@link DynamoDbEnhancedClient} を生成します。
+     * Creates a high-level mapper {@link DynamoDbEnhancedClient} wrapping a
+     * {@link DynamoDbClient}.
      *
      * @param dynamoDbClient
-     *            低レベルの {@link DynamoDbClient} インスタンス
-     * @return 設定された {@link DynamoDbEnhancedClient} インスタンス
+     *            Low-level {@link DynamoDbClient} instance
+     * @return Configured {@link DynamoDbEnhancedClient} instance
      */
     public static DynamoDbEnhancedClient createEnhancedClient(DynamoDbClient dynamoDbClient) {
         return DynamoDbEnhancedClient.builder().dynamoDbClient(dynamoDbClient).build();

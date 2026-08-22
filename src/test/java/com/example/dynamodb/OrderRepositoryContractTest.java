@@ -21,18 +21,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * OrderRepository の振る舞いを検証する共通契約テスト（Contract Test） v1 実装と v2 実装の両方がこのテストスイートを
- * 100% パスすることで等価性を保証します。
+ * Shared Contract Test suite verifying behavioral equivalence of
+ * {@link OrderRepository}. Both v1 and v2 implementations must pass 100% of
+ * these test cases to guarantee parity.
  */
 public abstract class OrderRepositoryContractTest extends AbstractDynamoDbContainerTest {
 
-    /** テスト対象のリポジトリインスタンス（各テストメソッド実行前に setUp で初期化） */
+    /** Test repository instance initialized before each test method */
     protected OrderRepository repository;
 
     /**
-     * テスト対象の {@link OrderRepository} 実装インスタンスをサブクラスで生成して提供します。
+     * Factory method provided by subclasses to instantiate the target
+     * {@link OrderRepository}.
      *
-     * @return テスト対象の {@link OrderRepository} インスタンス
+     * @return Target {@link OrderRepository} instance under test
      */
     protected abstract OrderRepository createRepository();
 
@@ -43,12 +45,12 @@ public abstract class OrderRepositoryContractTest extends AbstractDynamoDbContai
     }
 
     @Test
-    @DisplayName("CRUD: 注文を保存し、主キー（customerId, orderId）で取得できる")
+    @DisplayName("CRUD: Save order and find by primary key (customerId, orderId)")
     void testSaveAndFindById() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         Order order = new Order("cust-1001", "ord-5001", now, OrderStatus.CREATED, new BigDecimal("1500.00"),
-                List.of(new OrderLineItem("item-1", "Kotlin入門", 1, new BigDecimal("1000.00")),
-                        new OrderLineItem("item-2", "AWS設計ガイド", 1, new BigDecimal("500.00"))),
+                List.of(new OrderLineItem("item-1", "Kotlin in Action", 1, new BigDecimal("1000.00")),
+                        new OrderLineItem("item-2", "AWS Architecture Guide", 1, new BigDecimal("500.00"))),
                 null, now);
 
         Order saved = repository.save(order);
@@ -64,47 +66,47 @@ public abstract class OrderRepositoryContractTest extends AbstractDynamoDbContai
         assertThat(actual.getStatus()).isEqualTo(OrderStatus.CREATED);
         assertThat(actual.getTotalAmount()).isEqualByComparingTo("1500.00");
         assertThat(actual.getItems()).hasSize(2);
-        assertThat(actual.getItems().get(0).getItemName()).isEqualTo("Kotlin入門");
-        assertThat(actual.getItems().get(1).getItemName()).isEqualTo("AWS設計ガイド");
+        assertThat(actual.getItems().get(0).getItemName()).isEqualTo("Kotlin in Action");
+        assertThat(actual.getItems().get(1).getItemName()).isEqualTo("AWS Architecture Guide");
         assertThat(actual.getVersion()).isEqualTo(1L);
     }
 
     @Test
-    @DisplayName("CRUD: 存在しない主キーで検索した場合は empty を返す")
+    @DisplayName("CRUD: Return empty Optional when primary key is not found")
     void testFindByIdNotFound() {
         Optional<Order> found = repository.findById("non-existent-cust", "non-existent-ord");
         assertThat(found).isEmpty();
     }
 
     @Test
-    @DisplayName("CRUD: 楽観的ロック（@Version）による更新と競合検知")
+    @DisplayName("CRUD: Optimistic locking update and version conflict detection")
     void testOptimisticLockingSuccessAndConflict() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         Order order = new Order("cust-1002", "ord-5002", now, OrderStatus.CREATED, new BigDecimal("3000.00"),
-                List.of(new OrderLineItem("item-3", "クラウドアーキテクチャ", 1, new BigDecimal("3000.00"))), null, now);
+                List.of(new OrderLineItem("item-3", "Cloud Architecture", 1, new BigDecimal("3000.00"))), null, now);
         repository.save(order);
 
-        // 1回目の更新: version 1 -> 2 (正常)
+        // 1st update: version 1 -> 2 (Success)
         Order updated = repository.updateStatus("cust-1002", "ord-5002", OrderStatus.PAID, 1L);
         assertThat(updated.getStatus()).isEqualTo(OrderStatus.PAID);
         assertThat(updated.getVersion()).isEqualTo(2L);
 
-        // 2回目の更新で古い version 1L を指定した場合に競合例外が発生すること
+        // 2nd update with stale version 1L should throw conflict exception
         assertThatThrownBy(() -> repository.updateStatus("cust-1002", "ord-5002", OrderStatus.SHIPPED, 1L))
                 .isInstanceOf(Exception.class);
 
-        // 正しい version 2L で更新: version 2 -> 3 (正常)
+        // Update with valid version 2L: version 2 -> 3 (Success)
         Order finalUpdated = repository.updateStatus("cust-1002", "ord-5002", OrderStatus.SHIPPED, 2L);
         assertThat(finalUpdated.getStatus()).isEqualTo(OrderStatus.SHIPPED);
         assertThat(finalUpdated.getVersion()).isEqualTo(3L);
     }
 
     @Test
-    @DisplayName("CRUD: 注文を削除できる")
+    @DisplayName("CRUD: Delete order by primary key")
     void testDelete() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         Order order = new Order("cust-1003", "ord-5003", now, OrderStatus.CREATED, new BigDecimal("800.00"),
-                List.of(new OrderLineItem("item-4", "ノート", 2, new BigDecimal("400.00"))), null, now);
+                List.of(new OrderLineItem("item-4", "Notebook", 2, new BigDecimal("400.00"))), null, now);
         repository.save(order);
         assertThat(repository.findById("cust-1003", "ord-5003")).isPresent();
 
@@ -113,7 +115,7 @@ public abstract class OrderRepositoryContractTest extends AbstractDynamoDbContai
     }
 
     @Test
-    @DisplayName("Query: 顧客ID（Partition Key）ですべての注文を取得できる")
+    @DisplayName("Query: Find all orders by customerId (Partition Key Query)")
     void testFindByCustomerId() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
@@ -129,7 +131,7 @@ public abstract class OrderRepositoryContractTest extends AbstractDynamoDbContai
     }
 
     @Test
-    @DisplayName("Query: 顧客IDと注文日時範囲（Filter / Date Range）で注文を取得できる")
+    @DisplayName("Query: Find orders by customerId and date range")
     void testFindByCustomerIdAndDateRange() {
         Instant baseTime = Instant.parse("2026-08-01T00:00:00Z");
 
@@ -148,7 +150,7 @@ public abstract class OrderRepositoryContractTest extends AbstractDynamoDbContai
     }
 
     @Test
-    @DisplayName("Query (GSI): 注文ステータス（status-orderDate-index）で注文を検索できる")
+    @DisplayName("Query (GSI): Query orders by status using status-orderDate-index")
     void testFindByStatusGsi() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
@@ -163,7 +165,7 @@ public abstract class OrderRepositoryContractTest extends AbstractDynamoDbContai
     }
 
     @Test
-    @DisplayName("Scan: 金額フィルタ（FilterExpression）付きスキャン")
+    @DisplayName("Scan: Scan orders with minimum total amount filter")
     void testScanWithMinAmount() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
@@ -180,7 +182,7 @@ public abstract class OrderRepositoryContractTest extends AbstractDynamoDbContai
     }
 
     @Test
-    @DisplayName("Scan: ページネーション付きスキャンで全件を取得できる")
+    @DisplayName("Scan: Scan all orders using pagination tokens")
     void testScanOrdersPaged() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
@@ -202,26 +204,26 @@ public abstract class OrderRepositoryContractTest extends AbstractDynamoDbContai
     }
 
     // =========================================================================
-    // Batch 操作テスト
+    // Batch Operations Tests
     // =========================================================================
 
     @Test
-    @DisplayName("Batch: 複数の注文を一括保存（batchSave）し、一括取得（batchFindByIds）できる")
+    @DisplayName("Batch: Batch save multiple orders and batch find by composite keys")
     void testBatchSaveAndBatchFindByIds() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
         List<Order> orders = List.of(
                 new Order("cust-batch-1", "ord-b1", now, OrderStatus.CREATED, new BigDecimal("1000.00"),
-                        List.of(new OrderLineItem("item-b1", "商品1", 1, new BigDecimal("1000.00"))), null, now),
+                        List.of(new OrderLineItem("item-b1", "Product 1", 1, new BigDecimal("1000.00"))), null, now),
                 new Order("cust-batch-1", "ord-b2", now, OrderStatus.PAID, new BigDecimal("2000.00"),
-                        List.of(new OrderLineItem("item-b2", "商品2", 2, new BigDecimal("1000.00"))), null, now),
+                        List.of(new OrderLineItem("item-b2", "Product 2", 2, new BigDecimal("1000.00"))), null, now),
                 new Order("cust-batch-2", "ord-b3", now, OrderStatus.SHIPPED, new BigDecimal("3000.00"),
-                        List.of(new OrderLineItem("item-b3", "商品3", 3, new BigDecimal("1000.00"))), null, now));
+                        List.of(new OrderLineItem("item-b3", "Product 3", 3, new BigDecimal("1000.00"))), null, now));
 
-        // 一括保存
+        // Batch save
         repository.batchSave(orders);
 
-        // 一括取得（2件のみ指定）
+        // Batch find (requesting 2 keys)
         List<OrderKey> keysToFind = List.of(new OrderKey("cust-batch-1", "ord-b1"),
                 new OrderKey("cust-batch-2", "ord-b3"));
 
@@ -230,7 +232,7 @@ public abstract class OrderRepositoryContractTest extends AbstractDynamoDbContai
     }
 
     @Test
-    @DisplayName("Batch: 存在しない主キーが含まれていても存在する分のみ取得できる")
+    @DisplayName("Batch: Retrieve existing items when non-existent keys are included")
     void testBatchFindByIds_PartialAndNotFound() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
@@ -246,20 +248,19 @@ public abstract class OrderRepositoryContractTest extends AbstractDynamoDbContai
     }
 
     // =========================================================================
-    // Transaction 操作テスト
+    // Transaction Operations Tests
     // =========================================================================
 
     @Test
-    @DisplayName("Transaction: 複数の注文をアトミックに一括書き込みできる")
+    @DisplayName("Transaction: Atomically write multiple orders in a single transaction")
     void testExecuteInTransaction_Success() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
         List<Order> txOrders = List.of(
                 new Order("cust-tx-1", "ord-tx1", now, OrderStatus.CREATED, new BigDecimal("1200.00"),
-                        List.of(new OrderLineItem("item-tx1", "トランザクション商品1", 1, new BigDecimal("1200.00"))), null, now),
+                        List.of(new OrderLineItem("item-tx1", "Tx Item 1", 1, new BigDecimal("1200.00"))), null, now),
                 new Order("cust-tx-2", "ord-tx2", now, OrderStatus.PAID, new BigDecimal("2400.00"),
-                        List.of(new OrderLineItem("item-tx2", "トランザクション商品2", 2, new BigDecimal("1200.00"))), null,
-                        now));
+                        List.of(new OrderLineItem("item-tx2", "Tx Item 2", 2, new BigDecimal("1200.00"))), null, now));
 
         repository.executeInTransaction(txOrders);
 

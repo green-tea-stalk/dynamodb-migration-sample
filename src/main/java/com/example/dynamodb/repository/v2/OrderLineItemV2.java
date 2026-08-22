@@ -8,7 +8,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import java.math.BigDecimal;
 
 /**
- * AWS SDK v2 用 注文明細 DTO (DynamoDbEnhancedClient)
+ * Order line item DTO for AWS SDK v2 (DynamoDbEnhancedClient).
  */
 @DynamoDbBean
 @Data
@@ -16,29 +16,29 @@ import java.math.BigDecimal;
 public class OrderLineItemV2 {
 
     /**
-     * デフォルトコンストラクタ。
+     * Default constructor.
      */
     public OrderLineItemV2() {
     }
 
-    /** 商品ID */
+    /** Item identifier */
     private String itemId;
 
-    /** 商品名 */
+    /** Item name */
     private String itemName;
 
-    /** 数量 */
+    /** Quantity ordered */
     private int quantity;
 
-    /** 単価 */
+    /** Unit price */
     private BigDecimal unitPrice;
 
     /**
-     * ドメインモデル {@link OrderLineItem} から SDK v2 用 DTO を生成します。
+     * Converts a domain model {@link OrderLineItem} to an SDK v2 DTO.
      *
      * @param domain
-     *            変換元のドメイン明細モデル
-     * @return 変換後の {@link OrderLineItemV2} インスタンス（引数が null の場合は null）
+     *            Source domain line item
+     * @return Converted {@link OrderLineItemV2} instance (null if input is null)
      */
     public static OrderLineItemV2 fromDomain(OrderLineItem domain) {
         if (domain == null) {
@@ -49,9 +49,9 @@ public class OrderLineItemV2 {
     }
 
     /**
-     * SDK v2 用 DTO からドメインモデル {@link OrderLineItem} へ変換します。
+     * Converts this SDK v2 DTO to a domain model {@link OrderLineItem}.
      *
-     * @return 変換後のドメイン明細モデル
+     * @return Converted domain line item
      */
     public OrderLineItem toDomain() {
         return new OrderLineItem(itemId, itemName, quantity, unitPrice);

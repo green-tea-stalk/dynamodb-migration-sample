@@ -29,27 +29,28 @@ import java.net.URI;
 import java.util.Map;
 
 /**
- * Testcontainers を用いて DynamoDB Local を起動し、テーブル初期化を行う基底テストクラス
+ * Base test class that starts DynamoDB Local via Testcontainers and creates
+ * required DynamoDB tables.
  */
 @Testcontainers
 public abstract class AbstractDynamoDbContainerTest {
 
-    /** テスト対象の DynamoDB テーブル名 */
+    /** Target DynamoDB table name */
     public static final String TABLE_NAME = "orders";
-    /** ステータス・注文日時 GSI のインデックス名 */
+    /** Status and OrderDate Global Secondary Index (GSI) name */
     public static final String GSI_STATUS_ORDER_DATE = "status-orderDate-index";
 
-    /** DynamoDB Local を実行する Testcontainers コンテナインスタンス */
+    /** Testcontainers container instance running DynamoDB Local */
     @Container
     @SuppressWarnings("resource")
     public static final GenericContainer<?> DYNAMODB_CONTAINER = new GenericContainer<>("amazon/dynamodb-local:latest")
             .withExposedPorts(8000).waitingFor(Wait.forListeningPort());
 
-    /** サブクラスで利用可能な AWS SDK v1 AmazonDynamoDB クライアント */
+    /** AWS SDK v1 AmazonDynamoDB client available to subclasses */
     protected static AmazonDynamoDB v1Client;
-    /** サブクラスで利用可能な AWS SDK v2 DynamoDbClient クライアント */
+    /** AWS SDK v2 DynamoDbClient client available to subclasses */
     protected static DynamoDbClient v2Client;
-    /** サブクラスで利用可能な AWS SDK v2 DynamoDbEnhancedClient クライアント */
+    /** AWS SDK v2 DynamoDbEnhancedClient client available to subclasses */
     protected static DynamoDbEnhancedClient v2EnhancedClient;
 
     @BeforeAll
@@ -61,12 +62,12 @@ public abstract class AbstractDynamoDbContainerTest {
         String endpointUrl = "http://" + DYNAMODB_CONTAINER.getHost() + ":" + DYNAMODB_CONTAINER.getMappedPort(8000);
         URI endpoint = URI.create(endpointUrl);
 
-        // v1 / v2 クライアント初期化
+        // Initialize v1 and v2 clients
         v1Client = DynamoDbV1Config.createClient(endpoint, "us-east-1", "dummyKey", "dummySecret");
         v2Client = DynamoDbV2Config.createClient(endpoint, "us-east-1", "dummyKey", "dummySecret");
         v2EnhancedClient = DynamoDbV2Config.createEnhancedClient(v2Client);
 
-        // テーブル作成
+        // Create table
         createOrdersTable();
     }
 
@@ -81,11 +82,10 @@ public abstract class AbstractDynamoDbContainerTest {
     }
 
     /**
-     * テスト用 orders テーブルおよび GSI を作成します。
+     * Creates test orders table and Global Secondary Index using SDK v2.
      */
     private static void createOrdersTable() {
         try {
-            // テーブル作成リクエスト (v2 SDK を使用して作成)
             CreateTableRequest createTableRequest = CreateTableRequest.builder().tableName(TABLE_NAME)
                     .keySchema(KeySchemaElement.builder().attributeName("customerId").keyType(KeyType.HASH).build(),
                             KeySchemaElement.builder().attributeName("orderId").keyType(KeyType.RANGE).build())
@@ -112,15 +112,14 @@ public abstract class AbstractDynamoDbContainerTest {
 
             v2Client.createTable(createTableRequest);
         } catch (ResourceInUseException e) {
-            // テーブルが既に存在する場合はスキップ
+            // Table already exists, skip
         }
     }
 
     /**
-     * テストケース間でテーブル内の全アイテムを削除し、データをクリーンアップします。
+     * Deletes all items in the orders table to clean up state between test runs.
      */
     protected void deleteAllItems() {
-        // テストケース間のデータクリーンアップ
         ScanResponse scanResponse = v2Client.scan(ScanRequest.builder().tableName(TABLE_NAME).build());
         for (var item : scanResponse.items()) {
             v2Client.deleteItem(DeleteItemRequest.builder().tableName(TABLE_NAME)

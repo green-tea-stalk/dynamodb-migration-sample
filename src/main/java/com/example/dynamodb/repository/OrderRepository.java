@@ -10,149 +10,153 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 注文データへのアクセスを提供するリポジトリインターフェース AWS SDK の型に依存しないドメイン境界を定義します。
+ * Repository interface providing data access operations for {@link Order}.
+ * Defines domain boundaries completely decoupled from any specific AWS SDK
+ * types.
  */
 public interface OrderRepository {
 
     // =========================================================================
-    // CRUD 操作
+    // CRUD Operations
     // =========================================================================
 
     /**
-     * 注文を新規保存または更新します（PutItem）。
+     * Saves or updates an order (PutItem).
      *
      * @param order
-     *            保存対象の注文
-     * @return 保存後の注文（楽観的ロックのバージョン番号が更新される）
+     *            Order to save
+     * @return Saved order instance
      */
     Order save(Order order);
 
     /**
-     * 顧客IDと注文ID（主キー）で注文を取得します（GetItem）。
+     * Finds an order by customerId and orderId primary key (GetItem).
      *
      * @param customerId
-     *            顧客ID (Partition Key)
+     *            Customer ID (Partition Key)
      * @param orderId
-     *            注文ID (Sort Key)
-     * @return 見つかった注文（存在しない場合は empty）
+     *            Order ID (Sort Key)
+     * @return Optional containing the found order, or empty if not found
      */
     Optional<Order> findById(String customerId, String orderId);
 
     /**
-     * 注文ステータスを楽観的ロック付きで更新します。
+     * Updates the status of an order with optimistic locking validation.
      *
      * @param customerId
-     *            顧客ID
+     *            Customer ID
      * @param orderId
-     *            注文ID
+     *            Order ID
      * @param newStatus
-     *            新しいステータス
+     *            New order status
      * @param expectedVersion
-     *            期待される現在のバージョン番号
-     * @return 更新後の注文
+     *            Expected current version number
+     * @return Updated order instance
      */
     Order updateStatus(String customerId, String orderId, OrderStatus newStatus, long expectedVersion);
 
     /**
-     * 注文を削除します（DeleteItem）。
+     * Deletes an order by primary key (DeleteItem).
      *
      * @param customerId
-     *            顧客ID
+     *            Customer ID
      * @param orderId
-     *            注文ID
+     *            Order ID
      */
     void delete(String customerId, String orderId);
 
     // =========================================================================
-    // Batch 操作
+    // Batch Operations
     // =========================================================================
 
     /**
-     * 複数の注文を一括保存します（BatchWriteItem）。
+     * Saves multiple orders in batches (BatchWriteItem).
      *
      * @param orders
-     *            保存対象の注文リスト
+     *            List of orders to save
      */
     void batchSave(List<Order> orders);
 
     /**
-     * 複数の主キーを指定して注文を一括取得します（BatchGetItem）。
+     * Finds multiple orders by composite keys in batches (BatchGetItem).
      *
      * @param orderKeys
-     *            取得対象の主キー（customerId, orderId）リスト
-     * @return 取得できた注文のリスト（存在しないキーのアイテムは含まれません）
+     *            List of composite keys (customerId, orderId) to retrieve
+     * @return List of retrieved orders (omits non-existent keys)
      */
     List<Order> batchFindByIds(List<OrderKey> orderKeys);
 
     // =========================================================================
-    // Transaction 操作
+    // Transaction Operations
     // =========================================================================
 
     /**
-     * 複数の注文の保存・更新を同一トランザクションでアトミックに実行します（TransactWriteItems）。
-     * いずれかの書き込み条件（楽観的ロック等）が失敗した場合は、すべての変更がロールバックされます。
+     * Atomically writes multiple orders in a single transaction
+     * (TransactWriteItems). Rolls back all mutations if any condition check or
+     * transaction participant fails.
      *
      * @param ordersToWrite
-     *            トランザクション内で保存・更新する注文リスト
+     *            List of orders to write in transaction
      */
     void executeInTransaction(List<Order> ordersToWrite);
 
     // =========================================================================
-    // Query 操作
+    // Query Operations
     // =========================================================================
 
     /**
-     * 顧客IDを指定してすべての注文を取得します（Partition Key Query）。
+     * Queries all orders for a given customer ID (Partition Key Query).
      *
      * @param customerId
-     *            顧客ID
-     * @return 該当顧客の注文リスト
+     *            Customer ID
+     * @return List of orders for the customer
      */
     List<Order> findByCustomerId(String customerId);
 
     /**
-     * 顧客IDと注文日時の範囲を指定して注文を取得します。
+     * Queries orders for a customer placed within a specific date range.
      *
      * @param customerId
-     *            顧客ID
+     *            Customer ID
      * @param from
-     *            開始日時（inclusive）
+     *            Start timestamp (inclusive)
      * @param to
-     *            終了日時（inclusive）
-     * @return 該当する注文リスト
+     *            End timestamp (inclusive)
+     * @return List of matching orders
      */
     List<Order> findByCustomerIdAndDateRange(String customerId, Instant from, Instant to);
 
     /**
-     * 注文ステータスを指定して注文を取得します（GSI Query）。
+     * Queries orders matching a specific status (GSI Query).
      *
      * @param status
-     *            注文ステータス
-     * @return 該当ステータスの注文リスト
+     *            Order status
+     * @return List of orders matching the status
      */
     List<Order> findByStatus(OrderStatus status);
 
     // =========================================================================
-    // Scan 操作
+    // Scan Operations
     // =========================================================================
 
     /**
-     * 指定金額以上の注文を検索します（Filter付き Scan）。
+     * Scans orders with a filter on minimum total amount.
      *
      * @param minAmount
-     *            最小注文金額
-     * @return 該当する注文リスト
+     *            Minimum order amount
+     * @return List of matching orders
      */
     List<Order> scanOrdersWithMinAmount(BigDecimal minAmount);
 
     /**
-     * ページネーション付きで注文全件をスキャンします。
+     * Scans orders with pagination support.
      *
      * @param pageSize
-     *            1ページあたりの取得件数
+     *            Maximum number of items per page
      * @param paginationToken
-     *            次ページ取得用のトークン（初回は null）
-     * @return ページネーション結果
+     *            Continuation token for fetching subsequent pages (null for first
+     *            page)
+     * @return Paginated result containing items and optional next token
      */
     PageResult<Order> scanOrdersPaged(int pageSize, String paginationToken);
 }
