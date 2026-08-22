@@ -20,19 +20,22 @@ public class DynamoDbV1Config {
     /**
      * AWS SDK v1 の {@link AmazonDynamoDB} クライアントを生成します。
      *
-     * @param endpoint  カスタムエンドポイントURI（DynamoDB Local 接続時などに指定、AWS実環境の場合は null）
-     * @param region    AWS リージョン名（null の場合はデフォルトで "us-east-1" を使用）
-     * @param accessKey AWS アクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
-     * @param secretKey AWS シークレットアクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
+     * @param endpoint
+     *            カスタムエンドポイントURI（DynamoDB Local 接続時などに指定、AWS実環境の場合は null）
+     * @param region
+     *            AWS リージョン名（null の場合はデフォルトで "us-east-1" を使用）
+     * @param accessKey
+     *            AWS アクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
+     * @param secretKey
+     *            AWS シークレットアクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
      * @return 設定された {@link AmazonDynamoDB} クライアントインスタンス
      */
     public static AmazonDynamoDB createClient(URI endpoint, String region, String accessKey, String secretKey) {
         AmazonDynamoDBClientBuilder builder = AmazonDynamoDBClientBuilder.standard();
 
         if (endpoint != null) {
-            builder.withEndpointConfiguration(
-                    new AwsClientBuilder.EndpointConfiguration(endpoint.toString(), region != null ? region : "us-east-1")
-            );
+            builder.withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint.toString(),
+                    region != null ? region : "us-east-1"));
         } else if (region != null) {
             builder.withRegion(region);
         }

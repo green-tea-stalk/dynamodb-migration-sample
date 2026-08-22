@@ -2,7 +2,8 @@ package com.example.dynamodb.repository.v1;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
 import com.example.dynamodb.domain.OrderLineItem;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 import java.math.BigDecimal;
 
@@ -35,19 +36,16 @@ public class OrderLineItemV1 {
     /**
      * ドメインモデル {@link OrderLineItem} から SDK v1 用 DTO を生成します。
      *
-     * @param domain 変換元のドメイン明細モデル
+     * @param domain
+     *            変換元のドメイン明細モデル
      * @return 変換後の {@link OrderLineItemV1} インスタンス（引数が null の場合は null）
      */
     public static OrderLineItemV1 fromDomain(OrderLineItem domain) {
         if (domain == null) {
             return null;
         }
-        return new OrderLineItemV1(
-                domain.getItemId(),
-                domain.getItemName(),
-                domain.getQuantity(),
-                domain.getUnitPrice()
-        );
+        return new OrderLineItemV1(domain.getItemId(), domain.getItemName(), domain.getQuantity(),
+                domain.getUnitPrice());
     }
 
     /**

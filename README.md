@@ -6,6 +6,7 @@
 [![AWS SDK v1](https://img.shields.io/badge/AWS%20SDK%20v1-1.12.797-232F3E.svg?logo=amazon-aws)](https://aws.amazon.com/sdk-for-java/)
 [![AWS SDK v2](https://img.shields.io/badge/AWS%20SDK%20v2-2.54.2-232F3E.svg?logo=amazon-aws)](https://aws.amazon.com/sdk-for-java/)
 [![Testcontainers](https://img.shields.io/badge/Testcontainers-1.21.4-blue.svg?logo=docker)](https://testcontainers.com/)
+[![Spotless](https://img.shields.io/badge/Spotless-7.0.2-blueviolet.svg)](https://github.com/diffplug/spotless)
 
 本リポジトリは、**AWS SDK for Java v1 (`DynamoDBMapper`)** から **AWS SDK for Java v2 (`DynamoDbEnhancedClient`)** への段階的かつ安全な移行を実証・解説するサンプルプロジェクトです。
 
@@ -355,10 +356,14 @@ dependencies {
 ## 🚀 ビルド & テスト実行手順
 
 ```bash
-# ビルド
+# 1. コードフォーマット検証・適用 (Spotless)
+./gradlew spotlessCheck   # フォーマット検査
+./gradlew spotlessApply   # 自動フォーマット適用
+
+# 2. ビルド & Javadoc 検証 (テスト除外)
 ./gradlew build -x test
 
-# 全契約テストの実行 (※ Docker デーモンが起動している環境で実行)
+# 3. 全契約テストの実行 (※ Docker デーモンが起動している環境で実行)
 ./gradlew test
 ```
 

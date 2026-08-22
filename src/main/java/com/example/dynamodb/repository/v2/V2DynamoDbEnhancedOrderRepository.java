@@ -7,14 +7,34 @@ import com.example.dynamodb.repository.OrderRepository;
 import com.example.dynamodb.repository.PageResult;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import software.amazon.awssdk.enhanced.dynamodb.*;
-import software.amazon.awssdk.enhanced.dynamodb.model.*;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
+import software.amazon.awssdk.enhanced.dynamodb.Expression;
+import software.amazon.awssdk.enhanced.dynamodb.Key;
+import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.model.BatchGetItemEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.BatchWriteItemEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.Page;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.ReadBatch;
+import software.amazon.awssdk.enhanced.dynamodb.model.ScanEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.TransactWriteItemsEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.WriteBatch;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -34,7 +54,8 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
     /**
      * デフォルトテーブル名（"orders"）を使用してリポジトリを初期化します。
      *
-     * @param enhancedClient AWS SDK v2 の {@link DynamoDbEnhancedClient} インスタンス
+     * @param enhancedClient
+     *            AWS SDK v2 の {@link DynamoDbEnhancedClient} インスタンス
      */
     public V2DynamoDbEnhancedOrderRepository(DynamoDbEnhancedClient enhancedClient) {
         this(enhancedClient, DEFAULT_TABLE_NAME);
@@ -43,8 +64,10 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
     /**
      * テーブル名を明示的に指定してリポジトリを初期化します。
      *
-     * @param enhancedClient AWS SDK v2 の {@link DynamoDbEnhancedClient} インスタンス
-     * @param tableName      対象の DynamoDB テーブル名
+     * @param enhancedClient
+     *            AWS SDK v2 の {@link DynamoDbEnhancedClient} インスタンス
+     * @param tableName
+     *            対象の DynamoDB テーブル名
      */
     public V2DynamoDbEnhancedOrderRepository(DynamoDbEnhancedClient enhancedClient, String tableName) {
         this.enhancedClient = enhancedClient;
@@ -54,7 +77,8 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
     /**
      * {@inheritDoc}
      *
-     * @throws IllegalArgumentException order が null の場合
+     * @throws IllegalArgumentException
+     *             order が null の場合
      */
     @Override
     public Order save(Order order) {
@@ -66,8 +90,7 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
             item.setUpdatedAt(Instant.now());
         }
         table.putItem(item);
-        return findById(item.getCustomerId(), item.getOrderId())
-                .orElseGet(item::toDomain);
+        return findById(item.getCustomerId(), item.getOrderId()).orElseGet(item::toDomain);
     }
 
     /**
@@ -78,10 +101,7 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
         if (customerId == null || orderId == null) {
             return Optional.empty();
         }
-        Key key = Key.builder()
-                .partitionValue(customerId)
-                .sortValue(orderId)
-                .build();
+        Key key = Key.builder().partitionValue(customerId).sortValue(orderId).build();
 
         OrderItemV2 item = table.getItem(r -> r.key(key).consistentRead(true));
         return Optional.ofNullable(item).map(OrderItemV2::toDomain);
@@ -90,15 +110,14 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
     /**
      * {@inheritDoc}
      *
-     * @throws IllegalArgumentException 対象注文が存在しない場合
-     * @throws software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException 期待されるバージョンと不一致の場合
+     * @throws IllegalArgumentException
+     *             対象注文が存在しない場合
+     * @throws software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException
+     *             期待されるバージョンと不一致の場合
      */
     @Override
     public Order updateStatus(String customerId, String orderId, OrderStatus newStatus, long expectedVersion) {
-        Key key = Key.builder()
-                .partitionValue(customerId)
-                .sortValue(orderId)
-                .build();
+        Key key = Key.builder().partitionValue(customerId).sortValue(orderId).build();
 
         OrderItemV2 item = table.getItem(r -> r.key(key).consistentRead(true));
         if (item == null) {
@@ -122,10 +141,7 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
         if (customerId == null || orderId == null) {
             return;
         }
-        Key key = Key.builder()
-                .partitionValue(customerId)
-                .sortValue(orderId)
-                .build();
+        Key key = Key.builder().partitionValue(customerId).sortValue(orderId).build();
 
         table.deleteItem(key);
     }
@@ -150,8 +166,7 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
         }
 
         BatchWriteItemEnhancedRequest batchRequest = BatchWriteItemEnhancedRequest.builder()
-                .writeBatches(writeBatchBuilder.build())
-                .build();
+                .writeBatches(writeBatchBuilder.build()).build();
 
         enhancedClient.batchWriteItem(batchRequest);
     }
@@ -168,16 +183,12 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
                 .mappedTableResource(table);
 
         for (OrderKey key : orderKeys) {
-            Key ddbKey = Key.builder()
-                    .partitionValue(key.customerId())
-                    .sortValue(key.orderId())
-                    .build();
+            Key ddbKey = Key.builder().partitionValue(key.customerId()).sortValue(key.orderId()).build();
             readBatchBuilder.addGetItem(ddbKey);
         }
 
         BatchGetItemEnhancedRequest batchGetRequest = BatchGetItemEnhancedRequest.builder()
-                .readBatches(readBatchBuilder.build())
-                .build();
+                .readBatches(readBatchBuilder.build()).build();
 
         List<Order> results = new ArrayList<>();
         enhancedClient.batchGetItem(batchGetRequest).resultsForTable(table).forEach(item -> {
@@ -214,14 +225,11 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
      */
     @Override
     public List<Order> findByCustomerId(String customerId) {
-        QueryConditional queryConditional = QueryConditional.keyEqualTo(
-                Key.builder().partitionValue(customerId).build()
-        );
+        QueryConditional queryConditional = QueryConditional
+                .keyEqualTo(Key.builder().partitionValue(customerId).build());
 
-        QueryEnhancedRequest request = QueryEnhancedRequest.builder()
-                .queryConditional(queryConditional)
-                .consistentRead(true)
-                .build();
+        QueryEnhancedRequest request = QueryEnhancedRequest.builder().queryConditional(queryConditional)
+                .consistentRead(true).build();
 
         List<Order> results = new ArrayList<>();
         table.query(request).items().forEach(item -> results.add(item.toDomain()));
@@ -233,21 +241,15 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
      */
     @Override
     public List<Order> findByCustomerIdAndDateRange(String customerId, Instant from, Instant to) {
-        QueryConditional queryConditional = QueryConditional.keyEqualTo(
-                Key.builder().partitionValue(customerId).build()
-        );
+        QueryConditional queryConditional = QueryConditional
+                .keyEqualTo(Key.builder().partitionValue(customerId).build());
 
-        Expression filterExpression = Expression.builder()
-                .expression("orderDate BETWEEN :from AND :to")
+        Expression filterExpression = Expression.builder().expression("orderDate BETWEEN :from AND :to")
                 .putExpressionValue(":from", AttributeValue.fromS(from.toString()))
-                .putExpressionValue(":to", AttributeValue.fromS(to.toString()))
-                .build();
+                .putExpressionValue(":to", AttributeValue.fromS(to.toString())).build();
 
-        QueryEnhancedRequest request = QueryEnhancedRequest.builder()
-                .queryConditional(queryConditional)
-                .filterExpression(filterExpression)
-                .consistentRead(true)
-                .build();
+        QueryEnhancedRequest request = QueryEnhancedRequest.builder().queryConditional(queryConditional)
+                .filterExpression(filterExpression).consistentRead(true).build();
 
         List<Order> results = new ArrayList<>();
         table.query(request).items().forEach(item -> results.add(item.toDomain()));
@@ -261,18 +263,13 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
     public List<Order> findByStatus(OrderStatus status) {
         DynamoDbIndex<OrderItemV2> index = table.index(GSI_STATUS_ORDER_DATE);
 
-        QueryConditional queryConditional = QueryConditional.keyEqualTo(
-                Key.builder().partitionValue(status.name()).build()
-        );
+        QueryConditional queryConditional = QueryConditional
+                .keyEqualTo(Key.builder().partitionValue(status.name()).build());
 
-        QueryEnhancedRequest request = QueryEnhancedRequest.builder()
-                .queryConditional(queryConditional)
-                .build();
+        QueryEnhancedRequest request = QueryEnhancedRequest.builder().queryConditional(queryConditional).build();
 
         List<Order> results = new ArrayList<>();
-        index.query(request).forEach(page ->
-                page.items().forEach(item -> results.add(item.toDomain()))
-        );
+        index.query(request).forEach(page -> page.items().forEach(item -> results.add(item.toDomain())));
         return results;
     }
 
@@ -281,14 +278,10 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
      */
     @Override
     public List<Order> scanOrdersWithMinAmount(BigDecimal minAmount) {
-        Expression filterExpression = Expression.builder()
-                .expression("totalAmount >= :minAmount")
-                .putExpressionValue(":minAmount", AttributeValue.fromN(minAmount.toPlainString()))
-                .build();
+        Expression filterExpression = Expression.builder().expression("totalAmount >= :minAmount")
+                .putExpressionValue(":minAmount", AttributeValue.fromN(minAmount.toPlainString())).build();
 
-        ScanEnhancedRequest request = ScanEnhancedRequest.builder()
-                .filterExpression(filterExpression)
-                .build();
+        ScanEnhancedRequest request = ScanEnhancedRequest.builder().filterExpression(filterExpression).build();
 
         List<Order> results = new ArrayList<>();
         table.scan(request).items().forEach(item -> results.add(item.toDomain()));
@@ -300,8 +293,7 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
      */
     @Override
     public PageResult<Order> scanOrdersPaged(int pageSize, String paginationToken) {
-        ScanEnhancedRequest.Builder requestBuilder = ScanEnhancedRequest.builder()
-                .limit(pageSize);
+        ScanEnhancedRequest.Builder requestBuilder = ScanEnhancedRequest.builder().limit(pageSize);
 
         if (paginationToken != null && !paginationToken.trim().isEmpty()) {
             Map<String, AttributeValue> exclusiveStartKey = decodePaginationToken(paginationToken);
@@ -315,9 +307,7 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
         }
 
         Page<OrderItemV2> page = iterator.next();
-        List<Order> orders = page.items().stream()
-                .map(OrderItemV2::toDomain)
-                .collect(Collectors.toList());
+        List<Order> orders = page.items().stream().map(OrderItemV2::toDomain).collect(Collectors.toList());
 
         String nextToken = encodePaginationToken(page.lastEvaluatedKey());
         return new PageResult<>(orders, nextToken);
@@ -326,7 +316,8 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
     /**
      * DynamoDB の lastEvaluatedKey を Base64 URL セーフ文字列のページネーショントークンにエンコードします。
      *
-     * @param lastEvaluatedKey DynamoDB の最終評価キー
+     * @param lastEvaluatedKey
+     *            DynamoDB の最終評価キー
      * @return Base64 エンコードされたトークン文字列（キーが空または null の場合は null）
      */
     private String encodePaginationToken(Map<String, AttributeValue> lastEvaluatedKey) {
@@ -352,14 +343,17 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
     /**
      * Base64 URL セーフ文字列のページネーショントークンを DynamoDB の exclusiveStartKey にデコードします。
      *
-     * @param token Base64 エンコードされたトークン文字列
+     * @param token
+     *            Base64 エンコードされたトークン文字列
      * @return 復元された DynamoDB の属性値マップ
-     * @throws IllegalArgumentException トークンのデコードに失敗した場合
+     * @throws IllegalArgumentException
+     *             トークンのデコードに失敗した場合
      */
     private Map<String, AttributeValue> decodePaginationToken(String token) {
         try {
             byte[] jsonBytes = Base64.getUrlDecoder().decode(token);
-            Map<String, String> simpleMap = objectMapper.readValue(jsonBytes, new TypeReference<Map<String, String>>() {});
+            Map<String, String> simpleMap = objectMapper.readValue(jsonBytes, new TypeReference<Map<String, String>>() {
+            });
             Map<String, AttributeValue> map = new HashMap<>();
             for (Map.Entry<String, String> entry : simpleMap.entrySet()) {
                 String val = entry.getValue();

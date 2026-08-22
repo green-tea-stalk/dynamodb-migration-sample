@@ -22,15 +22,18 @@ public class DynamoDbV2Config {
     /**
      * AWS SDK v2 の {@link DynamoDbClient} クライアントを生成します。
      *
-     * @param endpoint  カスタムエンドポイントURI（DynamoDB Local 接続時などに指定、AWS実環境の場合は null）
-     * @param region    AWS リージョン名（null の場合はデフォルトで {@link Region#US_EAST_1} を使用）
-     * @param accessKey AWS アクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
-     * @param secretKey AWS シークレットアクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
+     * @param endpoint
+     *            カスタムエンドポイントURI（DynamoDB Local 接続時などに指定、AWS実環境の場合は null）
+     * @param region
+     *            AWS リージョン名（null の場合はデフォルトで {@link Region#US_EAST_1} を使用）
+     * @param accessKey
+     *            AWS アクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
+     * @param secretKey
+     *            AWS シークレットアクセスキー（null の場合はデフォルトの認証情報プロバイダチェーンを使用）
      * @return 設定された {@link DynamoDbClient} クライアントインスタンス
      */
     public static DynamoDbClient createClient(URI endpoint, String region, String accessKey, String secretKey) {
-        DynamoDbClientBuilder builder = DynamoDbClient.builder()
-                .httpClient(UrlConnectionHttpClient.create());
+        DynamoDbClientBuilder builder = DynamoDbClient.builder().httpClient(UrlConnectionHttpClient.create());
 
         if (endpoint != null) {
             builder.endpointOverride(endpoint);
@@ -44,8 +47,7 @@ public class DynamoDbV2Config {
 
         if (accessKey != null && secretKey != null) {
             builder.credentialsProvider(
-                    StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey))
-            );
+                    StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)));
         }
 
         return builder.build();
@@ -54,12 +56,11 @@ public class DynamoDbV2Config {
     /**
      * {@link DynamoDbClient} をラップした高レベルマッパー {@link DynamoDbEnhancedClient} を生成します。
      *
-     * @param dynamoDbClient 低レベルの {@link DynamoDbClient} インスタンス
+     * @param dynamoDbClient
+     *            低レベルの {@link DynamoDbClient} インスタンス
      * @return 設定された {@link DynamoDbEnhancedClient} インスタンス
      */
     public static DynamoDbEnhancedClient createEnhancedClient(DynamoDbClient dynamoDbClient) {
-        return DynamoDbEnhancedClient.builder()
-                .dynamoDbClient(dynamoDbClient)
-                .build();
+        return DynamoDbEnhancedClient.builder().dynamoDbClient(dynamoDbClient).build();
     }
 }

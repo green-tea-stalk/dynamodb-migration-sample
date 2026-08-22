@@ -7,6 +7,7 @@ assertj = "3.27.3"
 slf4j = "2.0.17"
 jackson = "2.19.0"
 lombok = "1.18.46"
+spotless = "7.0.2"
 
 [libraries]
 # Lombok
@@ -47,3 +48,6 @@ testcontainers = [
     "testcontainers",
     "testcontainers-junit-jupiter"
 ]
+
+[plugins]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

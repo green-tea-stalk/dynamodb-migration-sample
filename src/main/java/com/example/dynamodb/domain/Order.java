@@ -1,6 +1,8 @@
 package com.example.dynamodb.domain;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -60,7 +62,8 @@ public class Order {
     /**
      * 注文明細アイテムリストを設定します。
      *
-     * @param items 注文明細アイテムリスト
+     * @param items
+     *            注文明細アイテムリスト
      */
     public void setItems(List<OrderLineItem> items) {
         this.items = items != null ? new ArrayList<>(items) : new ArrayList<>();

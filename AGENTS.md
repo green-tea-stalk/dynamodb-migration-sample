@@ -85,16 +85,20 @@
 エージェントおよび開発者が変更を行った後は、以下のコマンドを実行して品質を検証してください。
 
 ```bash
-# 1. ソースコードおよびテストコードのコンパイル検証
+# 1. コードフォーマット検証・適用 (Spotless)
+./gradlew spotlessCheck   # フォーマット検査
+./gradlew spotlessApply   # 自動フォーマット適用
+
+# 2. ソースコードおよびテストコードのコンパイル検証
 ./gradlew compileJava compileTestJava
 
-# 2. Javadoc 生成検証（警告 0 件であることを確認）
+# 3. Javadoc 生成検証（警告 0 件であることを確認）
 ./gradlew javadoc
 
-# 3. テストを除外した全体ビルドチェック
+# 4. テストを除外した全体ビルドチェック
 ./gradlew check -x test
 
-# 4. 全契約テストの実行（※ Docker デーモンが起動している環境のみ）
+# 5. 全契約テストの実行（※ Docker デーモンが起動している環境のみ）
 ./gradlew test
 ```
 

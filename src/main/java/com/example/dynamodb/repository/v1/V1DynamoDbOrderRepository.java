@@ -7,8 +7,6 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBScanExpression;
 import com.amazonaws.services.dynamodbv2.datamodeling.ScanResultPage;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
-import com.amazonaws.services.dynamodbv2.model.ComparisonOperator;
-import com.amazonaws.services.dynamodbv2.model.Condition;
 import com.example.dynamodb.domain.Order;
 import com.example.dynamodb.domain.OrderKey;
 import com.example.dynamodb.domain.OrderStatus;
@@ -19,9 +17,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -30,34 +33,33 @@ import java.util.stream.Collectors;
 public class V1DynamoDbOrderRepository implements OrderRepository {
 
     private final DynamoDBMapper mapper;
-    private final AmazonDynamoDB dynamoDBClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * {@link AmazonDynamoDB} クライアントを使用してリポジトリを初期化します。
      *
-     * @param dynamoDBClient AWS SDK v1 の DynamoDB クライアント
+     * @param dynamoDBClient
+     *            AWS SDK v1 の DynamoDB クライアント
      */
     public V1DynamoDbOrderRepository(AmazonDynamoDB dynamoDBClient) {
-        this.dynamoDBClient = dynamoDBClient;
-        this.mapper = new DynamoDBMapper(dynamoDBClient, DynamoDBMapperConfig.DEFAULT);
+        this(new DynamoDBMapper(dynamoDBClient, DynamoDBMapperConfig.DEFAULT));
     }
 
     /**
-     * {@link DynamoDBMapper} および {@link AmazonDynamoDB} を指定してリポジトリを初期化します。
+     * {@link DynamoDBMapper} を指定してリポジトリを初期化します。
      *
-     * @param mapper         設定済みの {@link DynamoDBMapper}
-     * @param dynamoDBClient AWS SDK v1 の DynamoDB クライアント
+     * @param mapper
+     *            設定済みの {@link DynamoDBMapper}
      */
-    public V1DynamoDbOrderRepository(DynamoDBMapper mapper, AmazonDynamoDB dynamoDBClient) {
+    public V1DynamoDbOrderRepository(DynamoDBMapper mapper) {
         this.mapper = mapper;
-        this.dynamoDBClient = dynamoDBClient;
     }
 
     /**
      * {@inheritDoc}
      *
-     * @throws IllegalArgumentException order が null の場合
+     * @throws IllegalArgumentException
+     *             order が null の場合
      */
     @Override
     public Order save(Order order) {
@@ -87,8 +89,10 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
     /**
      * {@inheritDoc}
      *
-     * @throws IllegalArgumentException 対象注文が存在しない場合
-     * @throws com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException 期待されるバージョンと不一致の場合
+     * @throws IllegalArgumentException
+     *             対象注文が存在しない場合
+     * @throws com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException
+     *             期待されるバージョンと不一致の場合
      */
     @Override
     public Order updateStatus(String customerId, String orderId, OrderStatus newStatus, long expectedVersion) {
@@ -117,9 +121,8 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
         OrderItemV1 item = new OrderItemV1();
         item.setCustomerId(customerId);
         item.setOrderId(orderId);
-        mapper.delete(item, DynamoDBMapperConfig.builder()
-                .withSaveBehavior(DynamoDBMapperConfig.SaveBehavior.CLOBBER)
-                .build());
+        mapper.delete(item,
+                DynamoDBMapperConfig.builder().withSaveBehavior(DynamoDBMapperConfig.SaveBehavior.CLOBBER).build());
     }
 
     /**
@@ -130,15 +133,13 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
         if (orders == null || orders.isEmpty()) {
             return;
         }
-        List<OrderItemV1> items = orders.stream()
-                .map(order -> {
-                    OrderItemV1 item = OrderItemV1.fromDomain(order);
-                    if (item.getUpdatedAt() == null) {
-                        item.setUpdatedAt(Instant.now());
-                    }
-                    return item;
-                })
-                .collect(Collectors.toList());
+        List<OrderItemV1> items = orders.stream().map(order -> {
+            OrderItemV1 item = OrderItemV1.fromDomain(order);
+            if (item.getUpdatedAt() == null) {
+                item.setUpdatedAt(Instant.now());
+            }
+            return item;
+        }).collect(Collectors.toList());
         mapper.batchSave(items);
     }
 
@@ -150,14 +151,12 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
         if (orderKeys == null || orderKeys.isEmpty()) {
             return Collections.emptyList();
         }
-        List<OrderItemV1> itemsToLoad = orderKeys.stream()
-                .map(key -> {
-                    OrderItemV1 item = new OrderItemV1();
-                    item.setCustomerId(key.customerId());
-                    item.setOrderId(key.orderId());
-                    return item;
-                })
-                .collect(Collectors.toList());
+        List<OrderItemV1> itemsToLoad = orderKeys.stream().map(key -> {
+            OrderItemV1 item = new OrderItemV1();
+            item.setCustomerId(key.customerId());
+            item.setOrderId(key.orderId());
+            return item;
+        }).collect(Collectors.toList());
 
         Map<String, List<Object>> results = mapper.batchLoad(itemsToLoad);
         List<Order> orders = new ArrayList<>();
@@ -179,8 +178,7 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
         if (ordersToWrite == null || ordersToWrite.isEmpty()) {
             return;
         }
-        com.amazonaws.services.dynamodbv2.datamodeling.TransactionWriteRequest txRequest =
-                new com.amazonaws.services.dynamodbv2.datamodeling.TransactionWriteRequest();
+        com.amazonaws.services.dynamodbv2.datamodeling.TransactionWriteRequest txRequest = new com.amazonaws.services.dynamodbv2.datamodeling.TransactionWriteRequest();
 
         for (Order order : ordersToWrite) {
             OrderItemV1 item = OrderItemV1.fromDomain(order);
@@ -201,12 +199,9 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
         hashKeyValues.setCustomerId(customerId);
 
         DynamoDBQueryExpression<OrderItemV1> queryExpression = new DynamoDBQueryExpression<OrderItemV1>()
-                .withHashKeyValues(hashKeyValues)
-                .withConsistentRead(true);
+                .withHashKeyValues(hashKeyValues).withConsistentRead(true);
 
-        return mapper.query(OrderItemV1.class, queryExpression)
-                .stream()
-                .map(OrderItemV1::toDomain)
+        return mapper.query(OrderItemV1.class, queryExpression).stream().map(OrderItemV1::toDomain)
                 .collect(Collectors.toList());
     }
 
@@ -223,14 +218,10 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
         eav.put(":to", new AttributeValue().withS(to.toString()));
 
         DynamoDBQueryExpression<OrderItemV1> queryExpression = new DynamoDBQueryExpression<OrderItemV1>()
-                .withHashKeyValues(hashKeyValues)
-                .withFilterExpression("orderDate BETWEEN :from AND :to")
-                .withExpressionAttributeValues(eav)
-                .withConsistentRead(true);
+                .withHashKeyValues(hashKeyValues).withFilterExpression("orderDate BETWEEN :from AND :to")
+                .withExpressionAttributeValues(eav).withConsistentRead(true);
 
-        return mapper.query(OrderItemV1.class, queryExpression)
-                .stream()
-                .map(OrderItemV1::toDomain)
+        return mapper.query(OrderItemV1.class, queryExpression).stream().map(OrderItemV1::toDomain)
                 .collect(Collectors.toList());
     }
 
@@ -243,13 +234,9 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
         hashKeyValues.setStatus(status);
 
         DynamoDBQueryExpression<OrderItemV1> queryExpression = new DynamoDBQueryExpression<OrderItemV1>()
-                .withIndexName("status-orderDate-index")
-                .withHashKeyValues(hashKeyValues)
-                .withConsistentRead(false);
+                .withIndexName("status-orderDate-index").withHashKeyValues(hashKeyValues).withConsistentRead(false);
 
-        return mapper.query(OrderItemV1.class, queryExpression)
-                .stream()
-                .map(OrderItemV1::toDomain)
+        return mapper.query(OrderItemV1.class, queryExpression).stream().map(OrderItemV1::toDomain)
                 .collect(Collectors.toList());
     }
 
@@ -262,12 +249,9 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
         eav.put(":minAmount", new AttributeValue().withN(minAmount.toPlainString()));
 
         DynamoDBScanExpression scanExpression = new DynamoDBScanExpression()
-                .withFilterExpression("totalAmount >= :minAmount")
-                .withExpressionAttributeValues(eav);
+                .withFilterExpression("totalAmount >= :minAmount").withExpressionAttributeValues(eav);
 
-        return mapper.scan(OrderItemV1.class, scanExpression)
-                .stream()
-                .map(OrderItemV1::toDomain)
+        return mapper.scan(OrderItemV1.class, scanExpression).stream().map(OrderItemV1::toDomain)
                 .collect(Collectors.toList());
     }
 
@@ -276,8 +260,7 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
      */
     @Override
     public PageResult<Order> scanOrdersPaged(int pageSize, String paginationToken) {
-        DynamoDBScanExpression scanExpression = new DynamoDBScanExpression()
-                .withLimit(pageSize);
+        DynamoDBScanExpression scanExpression = new DynamoDBScanExpression().withLimit(pageSize);
 
         if (paginationToken != null && !paginationToken.trim().isEmpty()) {
             Map<String, AttributeValue> exclusiveStartKey = decodePaginationToken(paginationToken);
@@ -286,9 +269,7 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
 
         ScanResultPage<OrderItemV1> page = mapper.scanPage(OrderItemV1.class, scanExpression);
 
-        List<Order> orders = page.getResults().stream()
-                .map(OrderItemV1::toDomain)
-                .collect(Collectors.toList());
+        List<Order> orders = page.getResults().stream().map(OrderItemV1::toDomain).collect(Collectors.toList());
 
         String nextToken = encodePaginationToken(page.getLastEvaluatedKey());
         return new PageResult<>(orders, nextToken);
@@ -297,7 +278,8 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
     /**
      * DynamoDB の lastEvaluatedKey を Base64 URL セーフ文字列のページネーショントークンにエンコードします。
      *
-     * @param lastEvaluatedKey DynamoDB の最終評価キー
+     * @param lastEvaluatedKey
+     *            DynamoDB の最終評価キー
      * @return Base64 エンコードされたトークン文字列（キーが空または null の場合は null）
      */
     private String encodePaginationToken(Map<String, AttributeValue> lastEvaluatedKey) {
@@ -323,14 +305,17 @@ public class V1DynamoDbOrderRepository implements OrderRepository {
     /**
      * Base64 URL セーフ文字列のページネーショントークンを DynamoDB の exclusiveStartKey にデコードします。
      *
-     * @param token Base64 エンコードされたトークン文字列
+     * @param token
+     *            Base64 エンコードされたトークン文字列
      * @return 復元された DynamoDB の属性値マップ
-     * @throws IllegalArgumentException トークンのデコードに失敗した場合
+     * @throws IllegalArgumentException
+     *             トークンのデコードに失敗した場合
      */
     private Map<String, AttributeValue> decodePaginationToken(String token) {
         try {
             byte[] jsonBytes = Base64.getUrlDecoder().decode(token);
-            Map<String, String> simpleMap = objectMapper.readValue(jsonBytes, new TypeReference<Map<String, String>>() {});
+            Map<String, String> simpleMap = objectMapper.readValue(jsonBytes, new TypeReference<Map<String, String>>() {
+            });
             Map<String, AttributeValue> map = new HashMap<>();
             for (Map.Entry<String, String> entry : simpleMap.entrySet()) {
                 String val = entry.getValue();

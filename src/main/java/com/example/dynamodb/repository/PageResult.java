@@ -7,7 +7,8 @@ import java.util.Optional;
 /**
  * ページネーション付き検索結果を表す汎用クラス（AWS SDK 非依存）
  *
- * @param <T> アイテムの型
+ * @param <T>
+ *            アイテムの型
  */
 public class PageResult<T> {
 
@@ -17,8 +18,10 @@ public class PageResult<T> {
     /**
      * ページネーション結果を生成するコンストラクタ。
      *
-     * @param items     取得されたアイテム一覧
-     * @param nextToken 次ページ取得用トークン（最終ページまたは次ページがない場合は null）
+     * @param items
+     *            取得されたアイテム一覧
+     * @param nextToken
+     *            次ページ取得用トークン（最終ページまたは次ページがない場合は null）
      */
     public PageResult(List<T> items, String nextToken) {
         this.items = items != null ? Collections.unmodifiableList(items) : Collections.emptyList();
@@ -40,9 +43,7 @@ public class PageResult<T> {
      * @return 次ページトークン（存在しない場合は {@link Optional#empty()}）
      */
     public Optional<String> getNextToken() {
-        return (nextToken != null && !nextToken.trim().isEmpty())
-                ? Optional.of(nextToken)
-                : Optional.empty();
+        return (nextToken != null && !nextToken.trim().isEmpty()) ? Optional.of(nextToken) : Optional.empty();
     }
 
     /**
@@ -56,9 +57,6 @@ public class PageResult<T> {
 
     @Override
     public String toString() {
-        return "PageResult{" +
-                "itemsCount=" + items.size() +
-                ", hasNextPage=" + hasNextPage() +
-                '}';
+        return "PageResult{" + "itemsCount=" + items.size() + ", hasNextPage=" + hasNextPage() + '}';
     }
 }

@@ -1,5 +1,6 @@
 plugins {
     `java`
+    alias(libs.plugins.spotless)
 }
 
 group = "com.example"
@@ -50,4 +51,21 @@ java {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+spotless {
+    java {
+        target("src/**/*.java")
+        eclipse()
+        removeUnusedImports()
+        leadingTabsToSpaces(4)
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+    kotlinGradle {
+        target("*.gradle.kts")
+        ktlint()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }

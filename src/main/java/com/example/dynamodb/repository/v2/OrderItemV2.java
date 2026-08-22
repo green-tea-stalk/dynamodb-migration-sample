@@ -54,7 +54,8 @@ public class OrderItemV2 {
     /**
      * ドメインモデル {@link Order} から SDK v2 用エンティティを生成します。
      *
-     * @param domain 変換元のドメイン注文モデル
+     * @param domain
+     *            変換元のドメイン注文モデル
      * @return 変換後の {@link OrderItemV2} インスタンス（引数が null の場合は null）
      */
     public static OrderItemV2 fromDomain(Order domain) {
@@ -68,9 +69,7 @@ public class OrderItemV2 {
         item.setStatus(domain.getStatus());
         item.setTotalAmount(domain.getTotalAmount());
         if (domain.getItems() != null) {
-            item.setItems(domain.getItems().stream()
-                    .map(OrderLineItemV2::fromDomain)
-                    .collect(Collectors.toList()));
+            item.setItems(domain.getItems().stream().map(OrderLineItemV2::fromDomain).collect(Collectors.toList()));
         }
         item.setVersion(domain.getVersion());
         item.setUpdatedAt(domain.getUpdatedAt());
@@ -83,16 +82,11 @@ public class OrderItemV2 {
      * @return 変換後のドメイン注文モデル
      */
     public Order toDomain() {
-        return new Order(
-                customerId,
-                orderId,
-                orderDate,
-                status,
-                totalAmount,
-                items != null ? items.stream().map(OrderLineItemV2::toDomain).collect(Collectors.toList()) : Collections.emptyList(),
-                version,
-                updatedAt
-        );
+        return new Order(customerId, orderId, orderDate, status, totalAmount,
+                items != null
+                        ? items.stream().map(OrderLineItemV2::toDomain).collect(Collectors.toList())
+                        : Collections.emptyList(),
+                version, updatedAt);
     }
 
     /**
@@ -162,7 +156,8 @@ public class OrderItemV2 {
     /**
      * 注文明細アイテムリストを設定します。
      *
-     * @param items 注文明細アイテムリスト
+     * @param items
+     *            注文明細アイテムリスト
      */
     public void setItems(List<OrderLineItemV2> items) {
         this.items = items != null ? items : new ArrayList<>();

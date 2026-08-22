@@ -53,7 +53,8 @@ public class OrderItemV1 {
     /**
      * ドメインモデル {@link Order} から SDK v1 用エンティティを生成します。
      *
-     * @param domain 変換元のドメイン注文モデル
+     * @param domain
+     *            変換元のドメイン注文モデル
      * @return 変換後の {@link OrderItemV1} インスタンス（引数が null の場合は null）
      */
     public static OrderItemV1 fromDomain(Order domain) {
@@ -67,9 +68,7 @@ public class OrderItemV1 {
         item.setStatus(domain.getStatus());
         item.setTotalAmount(domain.getTotalAmount());
         if (domain.getItems() != null) {
-            item.setItems(domain.getItems().stream()
-                    .map(OrderLineItemV1::fromDomain)
-                    .collect(Collectors.toList()));
+            item.setItems(domain.getItems().stream().map(OrderLineItemV1::fromDomain).collect(Collectors.toList()));
         }
         item.setVersion(domain.getVersion());
         item.setUpdatedAt(domain.getUpdatedAt());
@@ -82,16 +81,11 @@ public class OrderItemV1 {
      * @return 変換後のドメイン注文モデル
      */
     public Order toDomain() {
-        return new Order(
-                customerId,
-                orderId,
-                orderDate,
-                status,
-                totalAmount,
-                items != null ? items.stream().map(OrderLineItemV1::toDomain).collect(Collectors.toList()) : Collections.emptyList(),
-                version,
-                updatedAt
-        );
+        return new Order(customerId, orderId, orderDate, status, totalAmount,
+                items != null
+                        ? items.stream().map(OrderLineItemV1::toDomain).collect(Collectors.toList())
+                        : Collections.emptyList(),
+                version, updatedAt);
     }
 
     /**
@@ -161,7 +155,8 @@ public class OrderItemV1 {
     /**
      * 注文明細アイテムリストを設定します。
      *
-     * @param items 注文明細アイテムリスト
+     * @param items
+     *            注文明細アイテムリスト
      */
     public void setItems(List<OrderLineItemV1> items) {
         this.items = items != null ? items : new ArrayList<>();
@@ -202,7 +197,8 @@ public class OrderItemV1 {
         /**
          * {@link Instant} を ISO-8601 文字列に変換します。
          *
-         * @param object 変換対象の {@link Instant}
+         * @param object
+         *            変換対象の {@link Instant}
          * @return ISO-8601 形式の文字列（null の場合は null）
          */
         @Override
@@ -213,7 +209,8 @@ public class OrderItemV1 {
         /**
          * ISO-8601 文字列を {@link Instant} に変換します。
          *
-         * @param object 変換対象の ISO-8601 文字列
+         * @param object
+         *            変換対象の ISO-8601 文字列
          * @return 復元された {@link Instant}（null の場合は null）
          */
         @Override

@@ -6,14 +6,27 @@ import com.example.dynamodb.config.DynamoDbV2Config;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.*;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
+import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
+import software.amazon.awssdk.services.dynamodb.model.KeyType;
+import software.amazon.awssdk.services.dynamodb.model.Projection;
+import software.amazon.awssdk.services.dynamodb.model.ProjectionType;
+import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
+import software.amazon.awssdk.services.dynamodb.model.ResourceInUseException;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
 import java.net.URI;
-import java.util.List;
+import java.util.Map;
 
 /**
  * Testcontainers を用いて DynamoDB Local を起動し、テーブル初期化を行う基底テストクラス
@@ -28,10 +41,9 @@ public abstract class AbstractDynamoDbContainerTest {
 
     /** DynamoDB Local を実行する Testcontainers コンテナインスタンス */
     @Container
-    public static final GenericContainer<?> DYNAMODB_CONTAINER =
-            new GenericContainer<>("amazon/dynamodb-local:latest")
-                    .withExposedPorts(8000)
-                    .waitingFor(org.testcontainers.containers.wait.strategy.Wait.forListeningPort());
+    @SuppressWarnings("resource")
+    public static final GenericContainer<?> DYNAMODB_CONTAINER = new GenericContainer<>("amazon/dynamodb-local:latest")
+            .withExposedPorts(8000).waitingFor(Wait.forListeningPort());
 
     /** サブクラスで利用可能な AWS SDK v1 AmazonDynamoDB クライアント */
     protected static AmazonDynamoDB v1Client;
@@ -74,30 +86,28 @@ public abstract class AbstractDynamoDbContainerTest {
     private static void createOrdersTable() {
         try {
             // テーブル作成リクエスト (v2 SDK を使用して作成)
-            CreateTableRequest createTableRequest = CreateTableRequest.builder()
-                    .tableName(TABLE_NAME)
-                    .keySchema(
-                            KeySchemaElement.builder().attributeName("customerId").keyType(KeyType.HASH).build(),
-                            KeySchemaElement.builder().attributeName("orderId").keyType(KeyType.RANGE).build()
-                    )
+            CreateTableRequest createTableRequest = CreateTableRequest.builder().tableName(TABLE_NAME)
+                    .keySchema(KeySchemaElement.builder().attributeName("customerId").keyType(KeyType.HASH).build(),
+                            KeySchemaElement.builder().attributeName("orderId").keyType(KeyType.RANGE).build())
                     .attributeDefinitions(
-                            AttributeDefinition.builder().attributeName("customerId").attributeType(ScalarAttributeType.S).build(),
-                            AttributeDefinition.builder().attributeName("orderId").attributeType(ScalarAttributeType.S).build(),
-                            AttributeDefinition.builder().attributeName("status").attributeType(ScalarAttributeType.S).build(),
-                            AttributeDefinition.builder().attributeName("orderDate").attributeType(ScalarAttributeType.S).build()
-                    )
-                    .globalSecondaryIndexes(
-                            GlobalSecondaryIndex.builder()
-                                     .indexName(GSI_STATUS_ORDER_DATE)
-                                     .keySchema(
-                                             KeySchemaElement.builder().attributeName("status").keyType(KeyType.HASH).build(),
-                                             KeySchemaElement.builder().attributeName("orderDate").keyType(KeyType.RANGE).build()
-                                     )
-                                     .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
-                                     .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(5L).writeCapacityUnits(5L).build())
-                                     .build()
-                    )
-                    .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(5L).writeCapacityUnits(5L).build())
+                            AttributeDefinition.builder().attributeName("customerId")
+                                    .attributeType(ScalarAttributeType.S).build(),
+                            AttributeDefinition.builder().attributeName("orderId").attributeType(ScalarAttributeType.S)
+                                    .build(),
+                            AttributeDefinition.builder().attributeName("status").attributeType(ScalarAttributeType.S)
+                                    .build(),
+                            AttributeDefinition.builder().attributeName("orderDate")
+                                    .attributeType(ScalarAttributeType.S).build())
+                    .globalSecondaryIndexes(GlobalSecondaryIndex.builder().indexName(GSI_STATUS_ORDER_DATE)
+                            .keySchema(KeySchemaElement.builder().attributeName("status").keyType(KeyType.HASH).build(),
+                                    KeySchemaElement.builder().attributeName("orderDate").keyType(KeyType.RANGE)
+                                            .build())
+                            .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
+                            .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(5L)
+                                    .writeCapacityUnits(5L).build())
+                            .build())
+                    .provisionedThroughput(
+                            ProvisionedThroughput.builder().readCapacityUnits(5L).writeCapacityUnits(5L).build())
                     .build();
 
             v2Client.createTable(createTableRequest);
@@ -113,13 +123,8 @@ public abstract class AbstractDynamoDbContainerTest {
         // テストケース間のデータクリーンアップ
         ScanResponse scanResponse = v2Client.scan(ScanRequest.builder().tableName(TABLE_NAME).build());
         for (var item : scanResponse.items()) {
-            v2Client.deleteItem(DeleteItemRequest.builder()
-                    .tableName(TABLE_NAME)
-                    .key(java.util.Map.of(
-                            "customerId", item.get("customerId"),
-                            "orderId", item.get("orderId")
-                    ))
-                    .build());
+            v2Client.deleteItem(DeleteItemRequest.builder().tableName(TABLE_NAME)
+                    .key(Map.of("customerId", item.get("customerId"), "orderId", item.get("orderId"))).build());
         }
     }
 }
