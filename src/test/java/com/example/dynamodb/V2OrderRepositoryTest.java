@@ -17,6 +17,6 @@ public class V2OrderRepositoryTest extends OrderRepositoryContractTest {
      */
     @Override
     protected OrderRepository createRepository() {
-        return new V2DynamoDbEnhancedOrderRepository(v2EnhancedClient);
+        return new V2DynamoDbEnhancedOrderRepository(v2EnhancedClient, v2BatchEnhancedClient);
     }
 }
