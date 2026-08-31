@@ -7,6 +7,7 @@ import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
+import software.amazon.awssdk.enhanced.dynamodb.extensions.VersionedRecordExtension;
 
 import java.net.URI;
 
@@ -58,13 +59,28 @@ public class DynamoDbV2Config {
 
     /**
      * Creates a high-level mapper {@link DynamoDbEnhancedClient} wrapping a
-     * {@link DynamoDbClient}.
+     * {@link DynamoDbClient}. Registers explicitly only the extensions used by the
+     * domain (VersionedRecordExtension).
      *
      * @param dynamoDbClient
      *            Low-level {@link DynamoDbClient} instance
      * @return Configured {@link DynamoDbEnhancedClient} instance
      */
     public static DynamoDbEnhancedClient createEnhancedClient(DynamoDbClient dynamoDbClient) {
-        return DynamoDbEnhancedClient.builder().dynamoDbClient(dynamoDbClient).build();
+        return DynamoDbEnhancedClient.builder().dynamoDbClient(dynamoDbClient)
+                .extensions(VersionedRecordExtension.builder().build()).build();
+    }
+
+    /**
+     * Creates a high-level mapper {@link DynamoDbEnhancedClient} specifically for
+     * batch operations. This client clears all extensions so that batch operations
+     * on versioned items do not fail with IllegalArgumentException.
+     *
+     * @param dynamoDbClient
+     *            Low-level {@link DynamoDbClient} instance
+     * @return Configured {@link DynamoDbEnhancedClient} instance without extensions
+     */
+    public static DynamoDbEnhancedClient createBatchEnhancedClient(DynamoDbClient dynamoDbClient) {
+        return DynamoDbEnhancedClient.builder().dynamoDbClient(dynamoDbClient).extensions().build();
     }
 }

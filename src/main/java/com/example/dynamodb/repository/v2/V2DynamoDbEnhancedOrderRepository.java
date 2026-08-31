@@ -50,6 +50,8 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
 
     private final DynamoDbEnhancedClient enhancedClient;
     private final DynamoDbTable<OrderItemV2> table;
+    private final DynamoDbEnhancedClient batchEnhancedClient;
+    private final DynamoDbTable<OrderItemV2> batchTable;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -57,9 +59,13 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
      *
      * @param enhancedClient
      *            AWS SDK v2 {@link DynamoDbEnhancedClient} instance
+     * @param batchEnhancedClient
+     *            AWS SDK v2 {@link DynamoDbEnhancedClient} instance configured
+     *            without extensions for batch operations
      */
-    public V2DynamoDbEnhancedOrderRepository(DynamoDbEnhancedClient enhancedClient) {
-        this(enhancedClient, DEFAULT_TABLE_NAME);
+    public V2DynamoDbEnhancedOrderRepository(DynamoDbEnhancedClient enhancedClient,
+            DynamoDbEnhancedClient batchEnhancedClient) {
+        this(enhancedClient, batchEnhancedClient, DEFAULT_TABLE_NAME);
     }
 
     /**
@@ -67,12 +73,18 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
      *
      * @param enhancedClient
      *            AWS SDK v2 {@link DynamoDbEnhancedClient} instance
+     * @param batchEnhancedClient
+     *            AWS SDK v2 {@link DynamoDbEnhancedClient} instance configured
+     *            without extensions for batch operations
      * @param tableName
      *            Target DynamoDB table name
      */
-    public V2DynamoDbEnhancedOrderRepository(DynamoDbEnhancedClient enhancedClient, String tableName) {
+    public V2DynamoDbEnhancedOrderRepository(DynamoDbEnhancedClient enhancedClient,
+            DynamoDbEnhancedClient batchEnhancedClient, String tableName) {
         this.enhancedClient = enhancedClient;
         this.table = enhancedClient.table(tableName, TableSchema.fromBean(OrderItemV2.class));
+        this.batchEnhancedClient = batchEnhancedClient;
+        this.batchTable = batchEnhancedClient.table(tableName, TableSchema.fromBean(OrderItemV2.class));
     }
 
     /**
@@ -157,7 +169,7 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
             return;
         }
         WriteBatch.Builder<OrderItemV2> writeBatchBuilder = WriteBatch.builder(OrderItemV2.class)
-                .mappedTableResource(table);
+                .mappedTableResource(batchTable);
 
         for (Order order : orders) {
             OrderItemV2 item = OrderItemV2.fromDomain(order);
@@ -170,7 +182,7 @@ public class V2DynamoDbEnhancedOrderRepository implements OrderRepository {
         BatchWriteItemEnhancedRequest batchRequest = BatchWriteItemEnhancedRequest.builder()
                 .writeBatches(writeBatchBuilder.build()).build();
 
-        enhancedClient.batchWriteItem(batchRequest);
+        batchEnhancedClient.batchWriteItem(batchRequest);
     }
 
     /**

@@ -52,6 +52,11 @@ public abstract class AbstractDynamoDbContainerTest {
     protected static DynamoDbClient v2Client;
     /** AWS SDK v2 DynamoDbEnhancedClient client available to subclasses */
     protected static DynamoDbEnhancedClient v2EnhancedClient;
+    /**
+     * AWS SDK v2 DynamoDbEnhancedClient client configured without extensions for
+     * batch operations
+     */
+    protected static DynamoDbEnhancedClient v2BatchEnhancedClient;
 
     @BeforeAll
     static void startContainerAndSetupTable() {
@@ -66,6 +71,7 @@ public abstract class AbstractDynamoDbContainerTest {
         v1Client = DynamoDbV1Config.createClient(endpoint, "us-east-1", "dummyKey", "dummySecret");
         v2Client = DynamoDbV2Config.createClient(endpoint, "us-east-1", "dummyKey", "dummySecret");
         v2EnhancedClient = DynamoDbV2Config.createEnhancedClient(v2Client);
+        v2BatchEnhancedClient = DynamoDbV2Config.createBatchEnhancedClient(v2Client);
 
         // Create table
         createOrdersTable();

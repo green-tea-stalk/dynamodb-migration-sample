@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Check code formatting (Spotless)
+        run: ./gradlew spotlessCheck
+
+      - name: Compile source and test code
+        run: ./gradlew compileJava compileTestJava
+
+      - name: Generate Javadoc
+        run: ./gradlew javadoc
+
+      - name: Run build checks (excluding tests)
+        run: ./gradlew check -x test
+
+      - name: Run all contract tests
+        run: ./gradlew test
