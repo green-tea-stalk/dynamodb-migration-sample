@@ -1,0 +1,10 @@
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "green-tea-stalk"
+    assignees:
+      - "green-tea-stalk"
