@@ -7,7 +7,7 @@ assertj = "3.27.3"
 slf4j = "2.0.17"
 jackson = "2.22.2"
 lombok = "1.18.46"
-spotless = "7.0.2"
+spotless = "8.10.1"
 
 [libraries]
 # Lombok
