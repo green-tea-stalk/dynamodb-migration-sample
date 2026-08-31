@@ -36,7 +36,7 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers = { module = "org.testcontainers:testcontainers" }
-testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 
 [bundles]
 aws-sdk-v2 = [
