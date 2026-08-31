@@ -2,13 +2,15 @@
 
 **English** | [日本語](README_ja.md)
 
+[![CI](https://github.com/green-tea-stalk/dynamodb-migration-sample/actions/workflows/ci.yml/badge.svg)](https://github.com/green-tea-stalk/dynamodb-migration-sample/actions/workflows/ci.yml)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot&logoColor=white)](https://docs.github.com/en/code-security/dependabot)
 [![Java 25](https://img.shields.io/badge/Java-25-orange.svg)](https://openjdk.org/projects/jdk/25/)
 [![Gradle](https://img.shields.io/badge/Gradle-9.1.0-02303A.svg?logo=gradle)](https://gradle.org)
 [![Lombok](https://img.shields.io/badge/Lombok-1.18.46-red.svg?logo=lombok)](https://projectlombok.org/)
 [![AWS SDK v1](https://img.shields.io/badge/AWS%20SDK%20v1-1.12.797-232F3E.svg?logo=amazon-aws)](https://aws.amazon.com/sdk-for-java/)
 [![AWS SDK v2](https://img.shields.io/badge/AWS%20SDK%20v2-2.54.2-232F3E.svg?logo=amazon-aws)](https://aws.amazon.com/sdk-for-java/)
-[![Testcontainers](https://img.shields.io/badge/Testcontainers-1.21.4-blue.svg?logo=docker)](https://testcontainers.com/)
-[![Spotless](https://img.shields.io/badge/Spotless-7.0.2-blueviolet.svg)](https://github.com/diffplug/spotless)
+[![Testcontainers](https://img.shields.io/badge/Testcontainers-2.0.5-blue.svg?logo=docker)](https://testcontainers.com/)
+[![Spotless](https://img.shields.io/badge/Spotless-8.10.1-blueviolet.svg)](https://github.com/diffplug/spotless)
 
 This repository is a comprehensive reference sample demonstrating how to safely and incrementally migrate from **AWS SDK for Java v1 (`DynamoDBMapper`)** to **AWS SDK for Java v2 (`DynamoDbEnhancedClient`)**.
 
