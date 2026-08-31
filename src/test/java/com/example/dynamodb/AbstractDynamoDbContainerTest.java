@@ -9,6 +9,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
@@ -43,8 +44,9 @@ public abstract class AbstractDynamoDbContainerTest {
     /** Testcontainers container instance running DynamoDB Local */
     @Container
     @SuppressWarnings("resource")
-    public static final GenericContainer<?> DYNAMODB_CONTAINER = new GenericContainer<>("amazon/dynamodb-local:latest")
-            .withExposedPorts(8000).waitingFor(Wait.forListeningPort());
+    public static final GenericContainer<?> DYNAMODB_CONTAINER = new GenericContainer<>(
+            DockerImageName.parse("amazon/dynamodb-local:latest")).withExposedPorts(8000)
+            .waitingFor(Wait.forListeningPort());
 
     /** AWS SDK v1 AmazonDynamoDB client available to subclasses */
     protected static AmazonDynamoDB v1Client;
